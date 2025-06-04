@@ -13,7 +13,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\KeyValue;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
@@ -78,35 +78,30 @@ class ChampionResource extends Resource
                     ->imageResizeTargetHeight('400')
                     ->columnSpanFull(),
                 
-                Repeater::make('stats')
-                    ->label('Champion Stats')
+                Forms\Components\Fieldset::make('Stats')
                     ->schema([
-                        TextInput::make('name')
-                            ->label('Stat Name')
-                            ->required(),
-                        TextInput::make('value')
-                            ->label('Stat Value')
+                        TextInput::make('stats.hp')
+                            ->label('Health Points')
                             ->numeric()
-                            ->required(),
+                            ->default(0),
+                        TextInput::make('stats.mana')
+                            ->label('Mana Points')
+                            ->numeric()
+                            ->default(0),
+                        TextInput::make('stats.attack')
+                            ->label('Attack Damage')
+                            ->numeric()
+                            ->default(0),
+                        TextInput::make('stats.defense')
+                            ->label('Defense')
+                            ->numeric()
+                            ->default(0),
+                        TextInput::make('stats.ability_power')
+                            ->label('Ability Power')
+                            ->numeric()
+                            ->default(0),
                     ])
-                    ->columns(2)
-                    ->columnSpanFull()
-                    ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
-                        $stats = [];
-                        foreach ($data as $stat) {
-                            $stats[$stat['name']] = $stat['value'];
-                        }
-                        return ['stats' => $stats];
-                    })
-                    ->mutateRelationshipDataBeforeFillUsing(function (array $data): array {
-                        $formatted = [];
-                        if (isset($data['stats']) && is_array($data['stats'])) {
-                            foreach ($data['stats'] as $name => $value) {
-                                $formatted[] = ['name' => $name, 'value' => $value];
-                            }
-                        }
-                        return $formatted;
-                    }),
+                    ->columns(2),
             ]);
     }
 
