@@ -12,3 +12,7 @@ Route::get('/test', function () {
 //Route::prefix('admin')->name('admin')->group(base_path('routes/admin.php'));
 Route::prefix('users')->name('users')->group(base_path('routes/users.php'));
 Route::prefix('champions')->name('champions')->group(base_path('routes/champions.php'));
+
+Route::get('/admin-test', function() {
+    return 'Admin test works! User: ' . (auth()->check() ? auth()->user()->email : 'Not logged in');
+});
