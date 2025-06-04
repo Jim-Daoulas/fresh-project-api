@@ -29,19 +29,13 @@ class Champion extends Model implements HasMedia
     protected $appends = ['image_url'];
 
     public function getImageUrlAttribute()
-{
-    $mediaUrl = $this->getFirstMediaUrl('avatars');
-    
-    if ($mediaUrl) {
-        // Αν το URL δεν έχει domain, πρόσθεσε το app URL
-        if (!str_starts_with($mediaUrl, 'http')) {
-            return config('app.url') . $mediaUrl;
-        }
-        return $mediaUrl;
+    {
+        // Get the media URL from the 'abilities' collection
+        $mediaUrl = $this->getFirstMediaUrl('avatars');
+        
+        // Return media URL if exists, otherwise return the original value
+        return $mediaUrl ?: $this->attributes['image_url'] ?? null;
     }
-    
-    return $this->attributes['image_url'] ?? null;
-}
 
     public function abilities(): HasMany
     {
