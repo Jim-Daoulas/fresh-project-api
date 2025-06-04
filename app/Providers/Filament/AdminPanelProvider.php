@@ -53,7 +53,16 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-             //   Authenticate::class,
+                Authenticate::class,
+            ])
+            ->middleware([
+                // ... existing middleware
+                function ($request, $next) {
+                    if (!auth()->user()->roles()->where('role_id', \App\Enum\RoleCode::admin)->exists()) {
+                        abort(403);
+                    }
+                    return $next($request);
+                }
             ]);
     }
 }
