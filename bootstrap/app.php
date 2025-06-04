@@ -12,12 +12,18 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware) {
-        $middleware->alias([
-            'setAuthRole' => \App\Http\Middleware\SetAuthRole::class,
-            //'checkRole' => \App\Http\Middleware\CheckRole::class,
-        ]);
-    })
+    ->withMiddleware(function (Middleware $middleware): void {
+    $middleware->alias([
+        'setAuthRole' => \App\Http\Middleware\SetAuthRole::class,
+        //'checkRole' => \App\Http\Middleware\CheckRole::class,
+    ]);
+    
+    // Πρόσθεσε αυτό για να διορθώσεις το CSRF
+    $middleware->validateCsrfTokens(except: [
+        'admin/login',
+        'admin/*'
+    ]);
+})
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })->create();
