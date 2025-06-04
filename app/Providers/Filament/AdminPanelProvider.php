@@ -51,18 +51,16 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
-            ])
-            ->authMiddleware([
-                Authenticate::class,
-            ])
-            ->middleware([
-                // ... existing middleware
+                // Προσθήκη admin check εδώ
                 function ($request, $next) {
-                    if (!auth()->user()->roles()->where('role_id', \App\Enum\RoleCode::admin)->exists()) {
-                        abort(403);
+                    if (auth()->check() && !auth()->user()->roles()->where('role_id', \App\Enum\RoleCode::admin)->exists()) {
+                        abort(403, 'Admin access required');
                     }
                     return $next($request);
                 }
+            ])
+            ->authMiddleware([
+                Authenticate::class,
             ]);
     }
 }
