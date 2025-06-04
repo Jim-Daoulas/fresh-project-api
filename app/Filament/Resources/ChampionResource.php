@@ -10,12 +10,13 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\ImageColumn;
-use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Repeater;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 
 class ChampionResource extends Resource
 {
@@ -67,10 +68,14 @@ class ChampionResource extends Resource
                     ->required()
                     ->columnSpanFull(),
                 
-                FileUpload::make('avatar')
+                SpatieMediaLibraryFileUpload::make('avatar')
                     ->label('Champion Avatar')
-                    ->image()
                     ->collection('avatar')
+                    ->image()
+                    ->imageResizeMode('cover')
+                    ->imageCropAspectRatio('1:1')
+                    ->imageResizeTargetWidth('400')
+                    ->imageResizeTargetHeight('400')
                     ->columnSpanFull(),
                 
                 Repeater::make('stats')
@@ -109,8 +114,10 @@ class ChampionResource extends Resource
     {
         return $table
             ->columns([
-                ImageColumn::make('avatar')
+                SpatieMediaLibraryImageColumn::make('avatar')
                     ->label('Avatar')
+                    ->collection('avatar')
+                    ->conversion('thumb')
                     ->circular()
                     ->size(60),
                 
