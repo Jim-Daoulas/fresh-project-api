@@ -36,7 +36,7 @@ class ReworkResource extends Resource
                                 if ($record) {
                                     return Champion::pluck('name', 'id');
                                 }
-                                // Στο create, επέστρεψε μόνο champions χωρίς rework
+                                // Στο create, επέστρεψε μόνο champions χωρίς rewor
                                 return Champion::whereDoesntHave('rework')->pluck('name', 'id');
                             })
                             ->rules(function ($record) {
