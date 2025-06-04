@@ -6,9 +6,11 @@ use App\Filament\Resources\ChampionResource\Pages;
 use App\Filament\Resources\ChampionResource\RelationManagers;
 use App\Models\Champion;
 use Filament\Forms;
+use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -62,9 +64,8 @@ class ChampionResource extends Resource
             Forms\Components\Textarea::make('description')
                 ->required()
                 ->columnSpanFull(),
-            Forms\Components\TextInput::make('image_url')
-                ->url()
-                ->maxLength(255),
+           SpatieMediaLibraryFileUpload::make('avatar')
+                    ->collection('avatars'),
             Forms\Components\KeyValue::make('stats')
                 ->keyLabel('Stat Name')
                 ->valueLabel('Value')
@@ -91,7 +92,8 @@ class ChampionResource extends Resource
                 ->searchable(),
             Tables\Columns\TextColumn::make('region')
                 ->searchable(),
-            Tables\Columns\ImageColumn::make('image_url'),
+            SpatieMediaLibraryImageColumn::make('avatar')
+                    ->collection('avatars'),
             Tables\Columns\TextColumn::make('created_at')
                 ->dateTime()
                 ->sortable()
