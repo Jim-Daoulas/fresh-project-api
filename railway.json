@@ -1,0 +1,8 @@
+{
+  "build": {
+    "builder": "heroku/buildpacks:20"
+  },
+  "deploy": {
+    "startCommand": "php artisan migrate --force && php artisan db:seed --force && vendor/bin/heroku-php-apache2 public/"
+  }
+}
