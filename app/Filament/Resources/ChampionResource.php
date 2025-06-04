@@ -65,7 +65,8 @@ class ChampionResource extends Resource
                 ->required()
                 ->columnSpanFull(),
            SpatieMediaLibraryFileUpload::make('avatar')
-                    ->collection('avatars'),
+                    ->collection('avatars')
+                    ->disk('public'),
             Forms\Components\KeyValue::make('stats')
                 ->keyLabel('Stat Name')
                 ->valueLabel('Value')
@@ -93,7 +94,8 @@ class ChampionResource extends Resource
             Tables\Columns\TextColumn::make('region')
                 ->searchable(),
             SpatieMediaLibraryImageColumn::make('avatar')
-                    ->collection('avatars'),
+                    ->collection('avatars')
+                    ->disk('public'),
             Tables\Columns\TextColumn::make('created_at')
                 ->dateTime()
                 ->sortable()
