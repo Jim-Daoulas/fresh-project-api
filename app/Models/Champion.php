@@ -25,8 +25,26 @@ class Champion extends Model implements HasMedia
     protected $casts = [
         'stats' => 'array',
     ];
+    
     protected $appends = ['image_url'];
 
+    /**
+     * Register media collections
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('avatars')->singleFile();
+    }
+
+    // Override the image_url attribute to return media URL
+    public function getImageUrlAttribute()
+    {
+        // Get the media URL from the 'avatars' collection
+        $mediaUrl = $this->getFirstMediaUrl('avatars');
+        
+        // Return media URL if exists, otherwise return the original value
+        return $mediaUrl ?: $this->attributes['image_url'] ?? null;
+    }
 
     public function abilities(): HasMany
     {
@@ -41,15 +59,5 @@ class Champion extends Model implements HasMedia
     public function rework()
     {
         return $this->hasOne(Rework::class);
-    }
-
-    // Override the image_url attribute to return media URL
-    public function getImageUrlAttribute()
-    {
-        // Get the media URL from the 'abilities' collection
-        $mediaUrl = $this->getFirstMediaUrl('avatars');
-        
-        // Return media URL if exists, otherwise return the original value
-        return $mediaUrl ?: $this->attributes['image_url'] ?? null;
     }
 }
