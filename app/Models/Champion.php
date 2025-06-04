@@ -28,14 +28,6 @@ class Champion extends Model implements HasMedia
     
     protected $appends = ['image_url'];
 
-    /**
-     * Register media collections
-     */
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('avatars')->singleFile();
-    }
-
     // Override the image_url attribute to return media URL
     public function getImageUrlAttribute()
     {
