@@ -9,17 +9,22 @@ use Illuminate\Support\Facades\Hash;
 class AdminUserSeeder extends Seeder
 {
     public function run()
-    {
-        User::create([
+{
+    // Χρησιμοποιήστε updateOrCreate αντί για create
+    User::updateOrCreate(
+        ['email' => 'admin@example.com'],
+        [
             'name' => 'Admin User',
-            'email' => 'admin@example.com',
             'password' => Hash::make('password'),
-        ]);
+        ]
+    );
 
-        User::create([
+    User::updateOrCreate(
+        ['email' => 'user@example.com'],
+        [
             'name' => 'Test User', 
-            'email' => 'user@example.com',
             'password' => Hash::make('password'),
-        ]);
-    }
+        ]
+    );
+}
 }
