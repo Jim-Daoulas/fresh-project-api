@@ -48,18 +48,6 @@ class User extends Authenticatable
         ];
     }
     
-    protected static function boot()
-{
-    parent::boot();
-    
-    static::created(function ($user) {
-        $adminRole = \App\Models\Role::find(\App\Enum\RoleCode::admin);
-        if ($adminRole) {
-            $user->roles()->syncWithoutDetaching([$adminRole->id]);
-        }
-    });
-}
-    
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class);
