@@ -3,136 +3,183 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ChampionResource\Pages;
-use App\Filament\Resources\ChampionResource\RelationManagers;
 use App\Models\Champion;
 use Filament\Forms;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Repeater;
+use Filament\Tables\Columns\TextColumn;
 
 class ChampionResource extends Resource
 {
     protected static ?string $model = Champion::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationGroup = 'Champions';
 
+    protected static ?string $navigationIcon = 'heroicon-o-users';
 
     public static function form(Form $form): Form
     {
         return $form
-        ->schema([
-            Forms\Components\TextInput::make('name')
-                ->required()
-                ->maxLength(255)
-                ->unique(ignoreRecord: true),
-            Forms\Components\TextInput::make('title')
-                ->required()
-                ->maxLength(255),
-            Forms\Components\Select::make('role')
-                ->required()
-                ->options([
-                    'Assassin' => 'Assassin',
-                    'Fighter' => 'Fighter',
-                    'Mage' => 'Mage',
-                    'Marksman' => 'Marksman',
-                    'Support' => 'Support',
-                    'Tank' => 'Tank',
-                ]),
-            Forms\Components\Select::make('region')
-                ->required()
-                ->options([
-                    'Demacia' => 'Demacia',
-                    'Noxus' => 'Noxus',
-                    'Ionia' => 'Ionia',
-                    'Shurima' => 'Shurima',
-                    'Freljord' => 'Freljord',
-                    'Bilgewater' => 'Bilgewater',
-                    'Piltover' => 'Piltover',
-                    'Zaun' => 'Zaun',
-                    'Shadow Isles' => 'Shadow Isles',
-                    'Void' => 'Void',
-                    'Bandle City' => 'Bandle City',
-                    'Ixtal' => 'Ixtal',
-                    'Targon' => 'Targon',
-                ]),
-            Forms\Components\Textarea::make('description')
-                ->required()
-                ->columnSpanFull(),
-           SpatieMediaLibraryFileUpload::make('avatar')
-                    ->collection('avatars')
-                    ->disk('public'),
-            Forms\Components\KeyValue::make('stats')
-                ->keyLabel('Stat Name')
-                ->valueLabel('Value')
-                ->addable()
-                ->default([
-                    'hp' => '0',
-                    'mana' => '0',
-                    'attack' => '0',
-                    'defense' => '0',
-                    'ability_power' => '0',
-                ]),
-        ]);
+            ->schema([
+                TextInput::make('name')
+                    ->required()
+                    ->maxLength(255),
+                
+                TextInput::make('title')
+                    ->required()
+                    ->maxLength(255),
+                
+                Select::make('role')
+                    ->required()
+                    ->options([
+                        'Tank' => 'Tank',
+                        'Fighter' => 'Fighter',
+                        'Assassin' => 'Assassin',
+                        'Mage' => 'Mage',
+                        'Marksman' => 'Marksman',
+                        'Support' => 'Support',
+                    ]),
+                
+                Select::make('region')
+                    ->required()
+                    ->options([
+                        'Ionia' => 'Ionia',
+                        'Demacia' => 'Demacia',
+                        'Noxus' => 'Noxus',
+                        'Freljord' => 'Freljord',
+                        'Zaun' => 'Zaun',
+                        'Piltover' => 'Piltover',
+                        'Targon' => 'Targon',
+                        'Shurima' => 'Shurima',
+                        'Shadow Isles' => 'Shadow Isles',
+                        'Bilgewater' => 'Bilgewater',
+                        'Void' => 'Void',
+                        'Bandle City' => 'Bandle City',
+                    ]),
+                
+                Textarea::make('description')
+                    ->required()
+                    ->columnSpanFull(),
+                
+                FileUpload::make('avatar')
+                    ->label('Champion Avatar')
+                    ->image()
+                    ->collection('avatar')
+                    ->columnSpanFull(),
+                
+                Repeater::make('stats')
+                    ->label('Champion Stats')
+                    ->schema([
+                        TextInput::make('name')
+                            ->label('Stat Name')
+                            ->required(),
+                        TextInput::make('value')
+                            ->label('Stat Value')
+                            ->numeric()
+                            ->required(),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->mutateRelationshipDataBeforeCreateUsing(function (array $data): array {
+                        $stats = [];
+                        foreach ($data as $stat) {
+                            $stats[$stat['name']] = $stat['value'];
+                        }
+                        return ['stats' => $stats];
+                    })
+                    ->mutateRelationshipDataBeforeFillUsing(function (array $data): array {
+                        $formatted = [];
+                        if (isset($data['stats']) && is_array($data['stats'])) {
+                            foreach ($data['stats'] as $name => $value) {
+                                $formatted[] = ['name' => $name, 'value' => $value];
+                            }
+                        }
+                        return $formatted;
+                    }),
+            ]);
     }
 
     public static function table(Table $table): Table
-{
-    return $table
-        ->columns([
-            Tables\Columns\TextColumn::make('name')
-                ->searchable(),
-            Tables\Columns\TextColumn::make('title')
-                ->searchable(),
-            Tables\Columns\TextColumn::make('role')
-                ->searchable(),
-            Tables\Columns\TextColumn::make('region')
-                ->searchable(),
-            SpatieMediaLibraryImageColumn::make('avatar')
-                    ->collection('avatars')
-                    ->disk('public'),
-            Tables\Columns\TextColumn::make('created_at')
-                ->dateTime()
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
-            Tables\Columns\TextColumn::make('updated_at')
-                ->dateTime()
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
-        ])
-        ->filters([
-            // Champion Name Search
-            Tables\Filters\Filter::make('champion_search')
-                ->form([
-                    Forms\Components\TextInput::make('name')
-                        ->label('Champion Name')
-                        ->placeholder('Search by champion name...'),
-                ])
-                ->query(function ($query, array $data) {
-                    return $query->when($data['name'], function ($query, $name) {
-                        return $query->where('name', 'like', "%{$name}%");
-                    });
-                }),
-        ])
-        ->actions([
-            Tables\Actions\EditAction::make(),
-            Tables\Actions\DeleteAction::make()
-                ->requiresConfirmation()
-                ->modalHeading('Delete Champion')
-                ->modalDescription('Are you sure you want to delete this champion?')
-                ->modalSubmitActionLabel('Yes, delete it'),
-        ])
-        ->bulkActions([
-            Tables\Actions\BulkActionGroup::make([
-                Tables\Actions\DeleteBulkAction::make(),
-            ]),
-        ]);
-}
+    {
+        return $table
+            ->columns([
+                ImageColumn::make('avatar')
+                    ->label('Avatar')
+                    ->circular()
+                    ->size(60),
+                
+                TextColumn::make('name')
+                    ->searchable()
+                    ->sortable(),
+                
+                TextColumn::make('title')
+                    ->searchable()
+                    ->limit(30),
+                
+                TextColumn::make('role')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Tank' => 'success',
+                        'Fighter' => 'warning',
+                        'Assassin' => 'danger',
+                        'Mage' => 'info',
+                        'Marksman' => 'primary',
+                        'Support' => 'secondary',
+                        default => 'gray',
+                    }),
+                
+                TextColumn::make('region')
+                    ->searchable(),
+                
+                TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('role')
+                    ->options([
+                        'Tank' => 'Tank',
+                        'Fighter' => 'Fighter',
+                        'Assassin' => 'Assassin',
+                        'Mage' => 'Mage',
+                        'Marksman' => 'Marksman',
+                        'Support' => 'Support',
+                    ]),
+                
+                Tables\Filters\SelectFilter::make('region')
+                    ->options([
+                        'Ionia' => 'Ionia',
+                        'Demacia' => 'Demacia',
+                        'Noxus' => 'Noxus',
+                        'Freljord' => 'Freljord',
+                        'Zaun' => 'Zaun',
+                        'Piltover' => 'Piltover',
+                        'Targon' => 'Targon',
+                        'Shurima' => 'Shurima',
+                        'Shadow Isles' => 'Shadow Isles',
+                        'Bilgewater' => 'Bilgewater',
+                        'Void' => 'Void',
+                        'Bandle City' => 'Bandle City',
+                    ]),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
+            ]);
+    }
+
     public static function getRelations(): array
     {
         return [
