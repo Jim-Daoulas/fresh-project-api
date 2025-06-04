@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         'admin/login',
         'admin/*'
     ]);
+    $middleware->trustProxies(at: '*');
 })
     ->withExceptions(function (Exceptions $exceptions) {
         //
