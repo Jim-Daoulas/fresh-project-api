@@ -75,11 +75,6 @@ class ChampionResource extends Resource
                         ->imageEditor()
                         ->maxSize(5120)
                         ->helperText('Upload champion avatar (max 5MB)'),
-                    Forms\Components\TextInput::make('image_url')
-                        ->label('Image URL (Fallback)')
-                        ->url()
-                        ->placeholder('https://example.com/champion-image.jpg')
-                        ->helperText('Optional: External image URL as fallback'),
                 ]),
             
             Forms\Components\Section::make('Description')
@@ -115,12 +110,7 @@ class ChampionResource extends Resource
                 ->collection('avatars')
                 ->conversion('thumb')
                 ->circular()
-                ->size(60)
-                ->defaultImageUrl(function ($record) {
-                    // Fallback to image_url field if no media
-                    return $record->getAttributes()['image_url'] ?? 
-                           'https://via.placeholder.com/100x100/667eea/ffffff?text=' . substr($record->name, 0, 1);
-                }),
+                ->size(60),
             Tables\Columns\TextColumn::make('name')
                 ->searchable()
                 ->sortable()
@@ -128,15 +118,6 @@ class ChampionResource extends Resource
             Tables\Columns\TextColumn::make('title')
                 ->searchable()
                 ->sortable(),
-            Tables\Columns\BadgeColumn::make('role')
-                ->colors([
-                    'danger' => 'Assassin',
-                    'warning' => 'Fighter',
-                    'primary' => 'Mage',
-                    'success' => 'Marksman',
-                    'info' => 'Support',
-                    'secondary' => 'Tank',
-                ]),
             Tables\Columns\TextColumn::make('region'),
             Tables\Columns\TextColumn::make('created_at')
                 ->dateTime()

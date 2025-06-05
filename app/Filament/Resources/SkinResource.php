@@ -32,8 +32,16 @@ class SkinResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
-                SpatieMediaLibraryFileUpload::make('skin')
-                    ->collection('skins'),
+                Forms\Components\Section::make('Skin')
+                ->schema([
+                    SpatieMediaLibraryFileUpload::make('skin')
+                        ->disk('s3')
+                        ->collection('skins')
+                        ->image()
+                        ->imageEditor()
+                        ->maxSize(5120)
+                        ->helperText('Upload champion skin (max 5MB)'),
+                ]),
                 Forms\Components\Textarea::make('description')
                     ->columnSpanFull(),
             ]);
@@ -49,7 +57,10 @@ class SkinResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 SpatieMediaLibraryImageColumn::make('skin')
-                    ->collection('skins'),
+                ->collection('skins')
+                ->conversion('thumb')
+                ->circular()
+                ->size(60),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

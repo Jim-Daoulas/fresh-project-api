@@ -38,8 +38,16 @@ class AbilityResource extends Resource
                 Forms\Components\Textarea::make('description')
                     ->required()
                     ->columnSpanFull(),
-                SpatieMediaLibraryFileUpload::make('ability')
-                    ->collection('abilities'),
+                Forms\Components\Section::make('Ability')
+                ->schema([
+                    SpatieMediaLibraryFileUpload::make('ability')
+                        ->disk('s3')
+                        ->collection('abilities')
+                        ->image()
+                        ->imageEditor()
+                        ->maxSize(5120)
+                        ->helperText('Upload champion ability (max 5MB)'),
+                ]),
                 Forms\Components\Textarea::make('details')
                     ->columnSpanFull(),
             ]);
@@ -57,7 +65,10 @@ class AbilityResource extends Resource
                 Tables\Columns\TextColumn::make('key')
                     ->searchable(),
                 SpatieMediaLibraryImageColumn::make('ability')
-                    ->collection('abilities'),
+                ->collection('abilities')
+                ->conversion('thumb')
+                ->circular()
+                ->size(60),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

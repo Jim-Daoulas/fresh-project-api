@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Skin extends Model implements HasMedia
 {
@@ -21,16 +22,21 @@ class Skin extends Model implements HasMedia
 
     // Append the media URL to the JSON response
     protected $appends = ['image_url'];
-
+    public function registerMediaConversion(Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->width(150)
+            ->height(150)
+            ->performOnCollections('skins');
+    }
     public function champion(): BelongsTo
     {
         return $this->belongsTo(Champion::class);
     }
 
-    // Override the image_url attribute to return media URL
     public function getImageUrlAttribute()
     {
-        // Get the media URL from the 'skins' collection
+        // Get the media URL from the 'avatars' collection
         $mediaUrl = $this->getFirstMediaUrl('skins');
         
         // Return media URL if exists, otherwise return the original value

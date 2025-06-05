@@ -28,6 +28,14 @@ class Ability extends Model implements HasMedia
 
     // Append the media URL to the JSON response
     protected $appends = ['image_url'];
+     /**
+     * Register media collections
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('abilities')
+            ->singleFile();
+    }
 
     public function champion(): BelongsTo
     {
