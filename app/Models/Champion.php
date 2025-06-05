@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Champion extends Model implements HasMedia
 {
@@ -26,8 +27,28 @@ class Champion extends Model implements HasMedia
         'stats' => 'array',
     ];
 
-    // Append the image URL to JSON responses
+    // Append the media URL to the JSON response
     protected $appends = ['image_url'];
+
+    /**
+     * Register media collections
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('avatars')
+            ->singleFile();
+    }
+
+    /**
+     * Register media conversions
+     */
+    public function registerMediaConversions(Media $media = null): void
+    {
+        $this->addMediaConversion('thumb')
+            ->width(150)
+            ->height(150)
+            ->performOnCollections('avatars');
+    }
 
     public function abilities(): HasMany
     {
