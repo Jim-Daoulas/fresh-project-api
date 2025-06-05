@@ -65,7 +65,10 @@ class ChampionResource extends Resource
                 ->required()
                 ->columnSpanFull(),
             SpatieMediaLibraryFileUpload::make('avatar')
-                    ->collection('avatars'),
+                ->disk('public')
+                ->collection('avatars')
+                ->image()
+                ->imageEditor(),
             Forms\Components\TextInput::make('image_url')
                 ->label('Image URL (Fallback)')
                 ->url(),
@@ -88,13 +91,9 @@ class ChampionResource extends Resource
     return $table
         ->columns([
             SpatieMediaLibraryImageColumn::make('avatar')
-                    ->collection('avatars')
-                    ->circular()
-                    ->defaultImageUrl(function ($record) {
-                        // Fallback to image_url field if no media
-                        return $record->getAttributes()['image_url'] ?? 
-                               'https://via.placeholder.com/100x100/667eea/ffffff?text=' . substr($record->name, 0, 1);
-                    }),
+                ->collection('avatars')
+                ->circular()
+                ->size(60),
             Tables\Columns\TextColumn::make('name')
                 ->searchable(),
             Tables\Columns\TextColumn::make('title')
