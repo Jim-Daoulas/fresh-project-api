@@ -26,6 +26,9 @@ class Champion extends Model implements HasMedia
         'stats' => 'array',
     ];
 
+    // Append the image URL to JSON responses
+    protected $appends = ['image_url'];
+
     public function abilities(): HasMany
     {
         return $this->hasMany(Ability::class);
