@@ -5,9 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class Champion extends Model implements HasMedia
 {
@@ -27,10 +27,8 @@ class Champion extends Model implements HasMedia
         'stats' => 'array',
     ];
 
-    protected $appends = ['avatar_url'];
-
-    // Βεβαιωθείτε ότι τα media φορτώνονται
-    protected $with = ['media'];
+    // Append the media URL to the JSON response
+    protected $appends = ['image_url'];
 
     public function abilities(): HasMany
     {
@@ -42,71 +40,73 @@ class Champion extends Model implements HasMedia
         return $this->hasMany(Skin::class);
     }
 
-    public function rework()
+    public function rework(): HasOne
     {
         return $this->hasOne(Rework::class);
     }
 
-    // Avatar URL που συνδυάζει Spatie Media και fallback
-    public function getAvatarUrlAttribute()
+    // Override the image_url attribute to return media URL
+    public function getImageUrlAttribute()
     {
-        // Προτίμησε το WebP conversion που είναι πιο συμβατό
-        $thumbUrl = $this->getFirstMediaUrl('avatar', 'thumb');
-        if ($thumbUrl) {
-            return $thumbUrl;
-        }
-
-        // Δοκίμασε το original αρχείο
-        $mediaUrl = $this->getFirstMediaUrl('avatar');
-        if ($mediaUrl) {
-            return $mediaUrl;
-        }
-
-        // Fallback στο image_url field
-        if ($this->image_url) {
-            if (str_starts_with($this->image_url, 'http')) {
-                return $this->image_url;
-            }
-            return asset('storage/' . $this->image_url);
-        }
-
-        return null;
-    }
-
-    // Override για να σιγουρευτούμε ότι το media serialization δουλεύει
-    public function toArray()
-    {
-        $array = parent::toArray();
+        // Get the media URL from the 'champions' collection
+        $mediaUrl = $this->getFirstMediaUrl('champions');
         
-        // Προσθήκη media information
-        $array['has_media'] = $this->hasMedia('avatar');
-        $array['media_url'] = $this->getFirstMediaUrl('avatar');
-        $array['media_count'] = $this->getMedia('avatar')->count();
-        
-        return $array;
+        // Return media URL if exists, otherwise return the original value
+        return $mediaUrl ?: $this->attributes['image_url'] ?? null;
     }
 
-    // Spatie Media Collections
-    public function registerMediaCollections(): void
+    // Scopes για εύκολη αναζήτηση
+    public function scopeByRole($query, $role)
     {
-        $this->addMediaCollection('avatar')
-            ->acceptsMimeTypes([
-                'image/jpeg', 
-                'image/png', 
-                'image/webp', 
-                'image/gif',
-                'image/avif'  // Προσθήκη AVIF support
-            ])
-            ->singleFile();
+        return $query->where('role', $role);
     }
 
-    // Media Conversions
-    public function registerMediaConversions(Media $media = null): void
+    public function scopeByRegion($query, $region)
     {
-        $this->addMediaConversion('thumb')
-            ->width(150)
-            ->height(150)
-            ->sharpen(10)
-            ->performOnCollections('avatar');
+        return $query->where('region', $region);
+    }
+
+    public function scopeSearch($query, $search)
+    {
+        return $query->where(function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('title', 'like', "%{$search}%")
+              ->orWhere('description', 'like', "%{$search}%");
+        });
+    }
+
+    // Helper methods
+    public function hasRework(): bool
+    {
+        return $this->rework !== null;
+    }
+
+    public function getAbilitiesCount(): int
+    {
+        return $this->abilities()->count();
+    }
+
+    public function getSkinsCount(): int
+    {
+        return $this->skins()->count();
+    }
+
+    public function getStatValue(string $stat): int
+    {
+        return $this->stats[$stat] ?? 0;
+    }
+
+    public function getRoleColorAttribute(): string
+    {
+        $colors = [
+            'Assassin' => 'red',
+            'Fighter' => 'orange',
+            'Mage' => 'blue',
+            'Marksman' => 'green',
+            'Support' => 'cyan',
+            'Tank' => 'gray',
+        ];
+
+        return $colors[$this->role] ?? 'gray';
     }
 }
