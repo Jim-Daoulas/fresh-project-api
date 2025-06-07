@@ -1,77 +1,31 @@
 <?php
 
-namespace App\Models;
+namespace App\Http\Middleware;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
+use App\Enum\RoleCode;
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
-class User extends Authenticatable implements FilamentUser
+class CheckRole
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
-
     /**
-     * The attributes that are mass assignable.
+     * Handle an incoming request.
      *
-     * @var list<string>
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    public function handle(Request $request, Closure $next, $role): Response
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
-    }
+        $user = auth()->user();
+        $role = $user->roles()->where('role_id', RoleCode::{$role})->first();
 
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class);
-    }
+        if (!$role) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
 
-    /**
-     * Determine if the user can access the Filament admin panel.
-     */
-    public function canAccessPanel(Panel $panel): bool
-    {
-        // Για testing - επιτρέπει πρόσβαση σε όλους
-        return true;
-        
-        // Για production - uncomment αυτό και comment το παραπάνω:
-        // return $this->hasRole('admin') || $this->email === 'admin@example.com';
-    }
-
-    /**
-     * Check if user has a specific role
-     */
-    public function hasRole(string $roleName): bool
-    {
-        return $this->roles()->where('name', $roleName)->exists();
+        return $next($request);
     }
 }
