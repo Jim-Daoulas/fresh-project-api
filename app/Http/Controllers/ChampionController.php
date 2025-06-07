@@ -26,29 +26,29 @@ class ChampionController extends Controller
                 
                 $champions->each(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
                     // Champion unlock status
-                    $champion->is_unlocked = $champion->is_unlocked_by_default || 
-                                           in_array($champion->id, $unlockedChampionIds);
-                    $champion->can_unlock = $user->canUnlock($champion);
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default || 
+                                                  in_array($champion->id, $unlockedChampionIds);
+                    $champion->user_can_unlock = $user->canUnlock($champion);
                     
                     // Skins unlock status
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                            $skin->is_unlocked = $skin->is_unlocked_by_default || 
-                                               in_array($skin->id, $unlockedSkinIds);
-                            $skin->can_unlock = $user->canUnlock($skin);
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default || 
+                                                      in_array($skin->id, $unlockedSkinIds);
+                            $skin->user_can_unlock = $user->canUnlock($skin);
                         });
                     }
                 });
             } else {
                 // Αν δεν είναι logged in, όλα είναι locked εκτός από τα default unlocked
                 $champions->each(function ($champion) {
-                    $champion->is_unlocked = $champion->is_unlocked_by_default;
-                    $champion->can_unlock = false;
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default;
+                    $champion->user_can_unlock = false;
                     
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) {
-                            $skin->is_unlocked = $skin->is_unlocked_by_default;
-                            $skin->can_unlock = false;
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default;
+                            $skin->user_can_unlock = false;
                         });
                     }
                 });
@@ -93,28 +93,28 @@ class ChampionController extends Controller
                 $user = $request->user();
                 
                 // Champion unlock status
-                $champion->is_unlocked = $champion->is_unlocked_by_default || 
-                                       $user->hasUnlocked($champion);
-                $champion->can_unlock = $user->canUnlock($champion);
+                $champion->user_has_unlocked = $champion->is_unlocked_by_default || 
+                                              $user->hasUnlocked($champion);
+                $champion->user_can_unlock = $user->canUnlock($champion);
                 
                 // Skins unlock status
                 if ($champion->skins) {
                     $unlockedSkinIds = $user->getUnlockedSkinIds();
                     $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                        $skin->is_unlocked = $skin->is_unlocked_by_default || 
-                                           in_array($skin->id, $unlockedSkinIds);
-                        $skin->can_unlock = $user->canUnlock($skin);
+                        $skin->user_has_unlocked = $skin->is_unlocked_by_default || 
+                                                  in_array($skin->id, $unlockedSkinIds);
+                        $skin->user_can_unlock = $user->canUnlock($skin);
                     });
                 }
             } else {
                 // Αν δεν είναι logged in
-                $champion->is_unlocked = $champion->is_unlocked_by_default;
-                $champion->can_unlock = false;
+                $champion->user_has_unlocked = $champion->is_unlocked_by_default;
+                $champion->user_can_unlock = false;
                 
                 if ($champion->skins) {
                     $champion->skins->each(function ($skin) {
-                        $skin->is_unlocked = $skin->is_unlocked_by_default;
-                        $skin->can_unlock = false;
+                        $skin->user_has_unlocked = $skin->is_unlocked_by_default;
+                        $skin->user_can_unlock = false;
                     });
                 }
             }
@@ -152,15 +152,27 @@ class ChampionController extends Controller
                 $unlockedSkinIds = $user->getUnlockedSkinIds();
                 
                 $champions->each(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
-                    $champion->is_unlocked = $champion->is_unlocked_by_default || 
-                                           in_array($champion->id, $unlockedChampionIds);
-                    $champion->can_unlock = $user->canUnlock($champion);
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default || 
+                                                  in_array($champion->id, $unlockedChampionIds);
+                    $champion->user_can_unlock = $user->canUnlock($champion);
                     
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                            $skin->is_unlocked = $skin->is_unlocked_by_default || 
-                                               in_array($skin->id, $unlockedSkinIds);
-                            $skin->can_unlock = $user->canUnlock($skin);
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default || 
+                                                      in_array($skin->id, $unlockedSkinIds);
+                            $skin->user_can_unlock = $user->canUnlock($skin);
+                        });
+                    }
+                });
+            } else {
+                $champions->each(function ($champion) {
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default;
+                    $champion->user_can_unlock = false;
+                    
+                    if ($champion->skins) {
+                        $champion->skins->each(function ($skin) {
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default;
+                            $skin->user_can_unlock = false;
                         });
                     }
                 });
@@ -206,15 +218,27 @@ class ChampionController extends Controller
                 $unlockedSkinIds = $user->getUnlockedSkinIds();
                 
                 $champions->each(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
-                    $champion->is_unlocked = $champion->is_unlocked_by_default || 
-                                           in_array($champion->id, $unlockedChampionIds);
-                    $champion->can_unlock = $user->canUnlock($champion);
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default || 
+                                                  in_array($champion->id, $unlockedChampionIds);
+                    $champion->user_can_unlock = $user->canUnlock($champion);
                     
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                            $skin->is_unlocked = $skin->is_unlocked_by_default || 
-                                               in_array($skin->id, $unlockedSkinIds);
-                            $skin->can_unlock = $user->canUnlock($skin);
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default || 
+                                                      in_array($skin->id, $unlockedSkinIds);
+                            $skin->user_can_unlock = $user->canUnlock($skin);
+                        });
+                    }
+                });
+            } else {
+                $champions->each(function ($champion) {
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default;
+                    $champion->user_can_unlock = false;
+                    
+                    if ($champion->skins) {
+                        $champion->skins->each(function ($skin) {
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default;
+                            $skin->user_can_unlock = false;
                         });
                     }
                 });
