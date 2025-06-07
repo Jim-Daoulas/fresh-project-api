@@ -11,69 +11,74 @@ class ChampionController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request): JsonResponse
+ public function index(Request $request): JsonResponse
 {
     try {
         \Log::info('ChampionController@index called');
         
         $champions = Champion::with(['skins', 'abilities'])->get();
         
-        // Αν ο user είναι logged in, προσθέτουμε unlock status
+        // Convert to array for easy manipulation
+        $championsArray = $champions->toArray();
+        
+        // Add unlock status
         if ($request->user()) {
             $user = $request->user();
             $unlockedChampionIds = $user->getUnlockedChampionIds();
             $unlockedSkinIds = $user->getUnlockedSkinIds();
             
-            // Μετατροπή σε collection για καλύτερο handling
-            $champions = $champions->map(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
-                // Μετατροπή σε array για manipulation
-                $championArray = $champion->toArray();
+            \Log::info('User ' . $user->id . ' unlocked champions: ' . json_encode($unlockedChampionIds));
+            
+            foreach ($championsArray as &$champion) {
+                // Add unlock status to champion
+                $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'] || 
+                                               in_array($champion['id'], $unlockedChampionIds);
+                $champion['user_can_unlock'] = !$champion['user_has_unlocked'] && 
+                                              !$champion['is_unlocked_by_default'];
                 
-                // Προσθήκη unlock status
-                $championArray['user_has_unlocked'] = $champion->is_unlocked_by_default || 
-                                                     in_array($champion->id, $unlockedChampionIds);
-                $championArray['user_can_unlock'] = $user->canUnlock($champion);
-                
-                // Skins handling
-                if (isset($championArray['skins']) && is_array($championArray['skins'])) {
-                    foreach ($championArray['skins'] as &$skin) {
-                        $skinModel = \App\Models\Skin::find($skin['id']);
-                        if ($skinModel) {
-                            $skin['user_has_unlocked'] = $skinModel->is_unlocked_by_default || 
-                                                        in_array($skin['id'], $unlockedSkinIds);
-                            $skin['user_can_unlock'] = $user->canUnlock($skinModel);
-                        }
+                // Add unlock status to skins
+                if (isset($champion['skins']) && is_array($champion['skins'])) {
+                    foreach ($champion['skins'] as &$skin) {
+                        $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'] || 
+                                                    in_array($skin['id'], $unlockedSkinIds);
+                        $skin['user_can_unlock'] = !$skin['user_has_unlocked'] && 
+                                                  !$skin['is_unlocked_by_default'];
                     }
                 }
                 
-                return $championArray;
-            });
+                // Debug log for champions 4 and 5
+                if (in_array($champion['id'], [4, 5])) {
+                    \Log::info('Champion ' . $champion['id'] . ' (' . $champion['name'] . ') status:', [
+                        'is_unlocked_by_default' => $champion['is_unlocked_by_default'],
+                        'in_unlocked_array' => in_array($champion['id'], $unlockedChampionIds),
+                        'user_has_unlocked' => $champion['user_has_unlocked']
+                    ]);
+                }
+            }
         } else {
-            // Guest user - μετατροπή σε array με locked status
-            $champions = $champions->map(function ($champion) {
-                $championArray = $champion->toArray();
-                $championArray['user_has_unlocked'] = $champion->is_unlocked_by_default;
-                $championArray['user_can_unlock'] = false;
+            // Guest user
+            foreach ($championsArray as &$champion) {
+                $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'];
+                $champion['user_can_unlock'] = false;
                 
-                if (isset($championArray['skins']) && is_array($championArray['skins'])) {
-                    foreach ($championArray['skins'] as &$skin) {
-                        $skinModel = \App\Models\Skin::find($skin['id']);
-                        $skin['user_has_unlocked'] = $skinModel ? $skinModel->is_unlocked_by_default : false;
+                if (isset($champion['skins']) && is_array($champion['skins'])) {
+                    foreach ($champion['skins'] as &$skin) {
+                        $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'];
                         $skin['user_can_unlock'] = false;
                     }
                 }
-                
-                return $championArray;
-            });
+            }
         }
         
         return response()->json([
             'success' => true,
-            'data' => $champions->toArray(),
+            'data' => $championsArray,
             'message' => 'Champions retrieved successfully'
         ]);
+        
     } catch (\Exception $e) {
         \Log::error('Error in ChampionController@index: ' . $e->getMessage());
+        \Log::error('Stack trace: ' . $e->getTraceAsString());
         
         return response()->json([
             'success' => false,
@@ -82,7 +87,6 @@ class ChampionController extends Controller
         ], 500);
     }
 }
-
     /**
      * Display the specified resource.
      */
