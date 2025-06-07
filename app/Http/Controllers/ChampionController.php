@@ -47,70 +47,58 @@ class ChampionController extends Controller
     }
 
     public function show(Request $request, Champion $champion): JsonResponse
-    {
-        try {
-            $user = $request->user();
-            
-            // Check if user has unlocked this champion
-            if ($user) {
-                if (!$user->hasUnlockedChampion($champion->id)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Champion not unlocked',
-                        'champion_id' => $champion->id,
-                        'unlock_cost' => $user::CHAMPION_COST,
-                        'user_points' => $user->getTotalPoints(),
-                        'can_unlock' => $user->getTotalPoints() >= $user::CHAMPION_COST
-                    ], 403);
-                }
-                
-                // Track champion view for points (only for unlocked champions)
-                $user->trackChampionView($champion->id);
-            } else {
-                // Guests can only view the first champion
-                if ($champion->id !== Champion::first()?->id) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Please login to view this champion'
-                    ], 401);
-                }
-            }
-            
-            $champion->load([
-                'abilities', 
-                'skins', 
-                'rework.abilities',
-                'rework.comments.user'
-            ]);
-            
-            // Filter skins based on user unlocks
-            if ($user) {
-                $unlockedSkinIds = $user->getUnlockedSkinIds();
-                $champion->skins = $champion->skins->map(function ($skin) use ($unlockedSkinIds) {
-                    $skin->is_unlocked = in_array($skin->id, $unlockedSkinIds);
-                    return $skin;
-                });
-            } else {
-                // For guests, show only first skin as unlocked
-                $champion->skins = $champion->skins->map(function ($skin, $index) {
-                    $skin->is_unlocked = $index === 0;
-                    return $skin;
-                });
-            }
-            
-            return response()->json([
-                'success' => true,
-                'data' => $champion,
-                'message' => 'Champion retrieved successfully'
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error in ChampionController@show: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch champion details',
-                'error' => $e->getMessage()
-            ], 500);
+{
+    try {
+        $user = $request->user();
+        
+        // Check if user has unlocked this champion
+        if ($user && !$user->hasUnlockedChampion($champion->id)) {
+            // Champion not unlocked, but still show it with limited access
+            $champion->is_unlocked = false;
+        } else {
+            $champion->is_unlocked = true;
         }
+        
+        $champion->load([
+            'abilities', 
+            'skins', 
+            'rework.abilities',
+            'rework.comments.user'
+        ]);
+        
+        // Filter skins and track only if champion is unlocked
+        if ($user) {
+            $unlockedSkinIds = $user->getUnlockedSkinIds();
+            $champion->skins = $champion->skins->map(function ($skin) use ($unlockedSkinIds, $champion) {
+                $skin->is_unlocked = $champion->is_unlocked && in_array($skin->id, $unlockedSkinIds);
+                return $skin;
+            });
+            
+            // Track champion view for points only if unlocked
+            if ($champion->is_unlocked) {
+                $user->trackChampionView($champion->id);
+            }
+        } else {
+            $champion->is_unlocked = false;
+            $champion->skins = $champion->skins->map(function ($skin) {
+                $skin->is_unlocked = false;
+                return $skin;
+            });
+        }
+        
+        return response()->json([
+            'success' => true,
+            'data' => $champion,
+            'message' => 'Champion retrieved successfully'
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error in ChampionController@show: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch champion details',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 }
