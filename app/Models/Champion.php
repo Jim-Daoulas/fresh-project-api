@@ -5,13 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-class Champion extends Model implements HasMedia
+class Champion extends Model
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory;
 
     protected $fillable = [
         'name',
@@ -21,34 +19,15 @@ class Champion extends Model implements HasMedia
         'description',
         'image_url',
         'stats',
+        'unlock_cost',
+        'is_unlocked_by_default',
     ];
 
     protected $casts = [
         'stats' => 'array',
+        'unlock_cost' => 'integer',
+        'is_unlocked_by_default' => 'boolean',
     ];
-
-    // Append the media URL to the JSON response
-    protected $appends = ['image_url'];
-
-    /**
-     * Register media collections
-     */
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('avatars')
-            ->singleFile();
-    }
-
-    /**
-     * Register media conversions
-     */
-    public function registerMediaConversions(Media $media = null): void
-    {
-        $this->addMediaConversion('thumb')
-            ->width(150)
-            ->height(150)
-            ->performOnCollections('avatars');
-    }
 
     public function abilities(): HasMany
     {
@@ -64,13 +43,56 @@ class Champion extends Model implements HasMedia
     {
         return $this->hasOne(Rework::class);
     }
-    
-    public function getImageUrlAttribute()
+
+    public function unlocks(): MorphMany
     {
-        // Get the media URL from the 'avatars' collection
-        $mediaUrl = $this->getFirstMediaUrl('avatars');
+        return $this->morphMany(UserUnlock::class, 'unlockable');
+    }
+
+    // Helper methods για unlock system
+    public function isUnlockedByDefault(): bool
+    {
+        return $this->is_unlocked_by_default;
+    }
+
+    public function isUnlockedBy(User $user): bool
+    {
+        return $this->is_unlocked_by_default || $user->hasUnlocked($this);
+    }
+
+    public function canBeUnlockedBy(User $user): bool
+    {
+        return !$this->is_unlocked_by_default && 
+               !$user->hasUnlocked($this) && 
+               $user->points >= $this->unlock_cost;
+    }
+
+    // Scope για unlocked champions
+    public function scopeUnlockedByUser($query, User $user)
+    {
+        $unlockedIds = $user->getUnlockedChampionIds();
         
-        // Return media URL if exists, otherwise return the original value
-        return $mediaUrl ?: $this->attributes['image_url'] ?? null;
+        return $query->where(function($q) use ($unlockedIds) {
+            $q->where('is_unlocked_by_default', true)
+              ->orWhereIn('id', $unlockedIds);
+        });
+    }
+
+    // Scope για locked champions
+    public function scopeLockedForUser($query, User $user)
+    {
+        $unlockedIds = $user->getUnlockedChampionIds();
+        
+        return $query->where('is_unlocked_by_default', false)
+                    ->whereNotIn('id', $unlockedIds);
+    }
+
+    // Append attributes για API responses
+    protected $appends = ['is_unlocked_by_default'];
+
+    // Accessor για API
+    public function getIsUnlockedByDefaultAttribute(): bool
+    {
+        return $this->attributes['is_unlocked_by_default'] ?? false;
     }
 }
