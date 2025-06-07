@@ -223,19 +223,54 @@ class User extends Authenticatable
         }
     }
 
-    public function trackChampionView(int $championId): void
+    public function trackChampionView(int $championId): array
     {
         // Only give points once per champion per day
-        $today = Carbon::today();
-        $cacheKey = "champion_view_{$this->id}_{$championId}_{$today->format('Y-m-d')}";
+        $today = Carbon::today()->format('Y-m-d');
+        $cacheKey = "champion_view_{$this->id}_{$championId}_{$today}";
         
         if (!cache()->has($cacheKey)) {
             $this->addPoints(self::VIEW_CHAMPION_POINTS);
-            cache()->put($cacheKey, true, $today->endOfDay());
+            cache()->put($cacheKey, true, Carbon::today()->endOfDay());
+            
+            return [
+                'points_earned' => self::VIEW_CHAMPION_POINTS,
+                'message' => '+' . self::VIEW_CHAMPION_POINTS . ' points for viewing champion!',
+                'total_points' => $this->getTotalPoints()
+            ];
+        }
+        
+        return [
+            'points_earned' => 0, 
+            'message' => 'Already viewed today',
+            'total_points' => $this->getTotalPoints()
+        ];
+    }
+
+    public function trackComment(): array
+    {
+        $this->addPoints(self::ADD_COMMENT_POINTS);
+        
+        return [
+            'points_earned' => self::ADD_COMMENT_POINTS,
+            'message' => '+' . self::ADD_COMMENT_POINTS . ' point for commenting!',
+            'total_points' => $this->getTotalPoints()
+        ];
+    }
+
+    // Alternative void methods if you prefer not to return values
+    public function trackChampionViewSilent(int $championId): void
+    {
+        $today = Carbon::today()->format('Y-m-d');
+        $cacheKey = "champion_view_{$this->id}_{$championId}_{$today}";
+        
+        if (!cache()->has($cacheKey)) {
+            $this->addPoints(self::VIEW_CHAMPION_POINTS);
+            cache()->put($cacheKey, true, Carbon::today()->endOfDay());
         }
     }
 
-    public function trackComment(): void
+    public function trackCommentSilent(): void
     {
         $this->addPoints(self::ADD_COMMENT_POINTS);
     }

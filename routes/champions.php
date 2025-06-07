@@ -5,18 +5,27 @@ use App\Http\Controllers\ReworkController;
 use App\Http\Controllers\CommentController;
 use Illuminate\Support\Facades\Route;
 
+// Public routes (no authentication required)
 Route::get('/', [ChampionController::class, 'index']);
-
 Route::get('/champions', [ChampionController::class, 'index']);
-Route::get('/{champion}', [ChampionController::class, 'show']);
-Route::get('/role/{role}', [ChampionController::class, 'getChampionsByRole']);
+Route::get('/test', [ChampionController::class, 'test']);
 Route::get('/search', [ChampionController::class, 'search']);
+Route::get('/role/{role}', [ChampionController::class, 'getChampionsByRole']);
+Route::get('/{champion}', [ChampionController::class, 'show']);
 
-// Protected routes - Για τα σχόλια (απαιτούν αυθεντικοποίηση)
+// Protected routes - Require authentication
 Route::middleware(['auth:sanctum'])->group(function() {
-    // Λήψη σχολίων για το rework ενός champion
-    Route::get('/{champion}/rework/comments', [CommentController::class, 'getChampionReworkComments']);
+    // Champion unlock status and unlock actions are handled in user routes
+    Route::get('/{champion}/unlock-status', [ChampionController::class, 'getUnlockStatus']);
     
-    // Προσθήκη σχολίου στο rework ενός champion
+    // Rework comments
+    Route::get('/{champion}/rework/comments', [CommentController::class, 'getChampionReworkComments']);
     Route::post('/{champion}/rework/comments', [CommentController::class, 'addCommentToChampionRework']);
+    
+    // General comment CRUD
+    Route::apiResource('comments', CommentController::class)->only(['store', 'update', 'destroy']);
 });
+
+// Public comment viewing
+Route::get('/comments', [CommentController::class, 'index']);
+Route::get('/comments/{comment}', [CommentController::class, 'show']);
