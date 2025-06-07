@@ -11,82 +11,82 @@ class ChampionController extends Controller
     /**
      * Display a listing of the resource.
      */
- public function index(Request $request): JsonResponse
-{
-    try {
-        \Log::info('ChampionController@index called');
-        
-        $champions = Champion::with(['skins', 'abilities'])->get();
-        
-        // Convert to array for easy manipulation
-        $championsArray = $champions->toArray();
-        
-        // Add unlock status
-        if ($request->user()) {
-            $user = $request->user();
-            $unlockedChampionIds = $user->getUnlockedChampionIds();
-            $unlockedSkinIds = $user->getUnlockedSkinIds();
-            
-            \Log::info('User ' . $user->id . ' unlocked champions: ' . json_encode($unlockedChampionIds));
-            
-            foreach ($championsArray as &$champion) {
-                // Add unlock status to champion
-                $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'] || 
-                                               in_array($champion['id'], $unlockedChampionIds);
-                $champion['user_can_unlock'] = !$champion['user_has_unlocked'] && 
-                                              !$champion['is_unlocked_by_default'];
-                
-                // Add unlock status to skins
-                if (isset($champion['skins']) && is_array($champion['skins'])) {
-                    foreach ($champion['skins'] as &$skin) {
-                        $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'] || 
-                                                    in_array($skin['id'], $unlockedSkinIds);
-                        $skin['user_can_unlock'] = !$skin['user_has_unlocked'] && 
-                                                  !$skin['is_unlocked_by_default'];
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            \Log::info('ChampionController@index called');
+
+            $champions = Champion::with(['skins', 'abilities'])->get();
+
+            // Convert to array for easy manipulation
+            $championsArray = $champions->toArray();
+
+            // Add unlock status
+            if ($request->user()) {
+                $user = $request->user();
+                $unlockedChampionIds = $user->getUnlockedChampionIds();
+                $unlockedSkinIds = $user->getUnlockedSkinIds();
+
+                \Log::info('User ' . $user->id . ' unlocked champions: ' . json_encode($unlockedChampionIds));
+
+                foreach ($championsArray as &$champion) {
+                    // Add unlock status to champion
+                    $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'] ||
+                        in_array($champion['id'], $unlockedChampionIds);
+                    $champion['user_can_unlock'] = !$champion['user_has_unlocked'] &&
+                        !$champion['is_unlocked_by_default'];
+
+                    // Add unlock status to skins
+                    if (isset($champion['skins']) && is_array($champion['skins'])) {
+                        foreach ($champion['skins'] as &$skin) {
+                            $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'] ||
+                                in_array($skin['id'], $unlockedSkinIds);
+                            $skin['user_can_unlock'] = !$skin['user_has_unlocked'] &&
+                                !$skin['is_unlocked_by_default'];
+                        }
+                    }
+
+                    // Debug log for champions 4 and 5
+                    if (in_array($champion['id'], [4, 5])) {
+                        \Log::info('Champion ' . $champion['id'] . ' (' . $champion['name'] . ') status:', [
+                            'is_unlocked_by_default' => $champion['is_unlocked_by_default'],
+                            'in_unlocked_array' => in_array($champion['id'], $unlockedChampionIds),
+                            'user_has_unlocked' => $champion['user_has_unlocked']
+                        ]);
                     }
                 }
-                
-                // Debug log for champions 4 and 5
-                if (in_array($champion['id'], [4, 5])) {
-                    \Log::info('Champion ' . $champion['id'] . ' (' . $champion['name'] . ') status:', [
-                        'is_unlocked_by_default' => $champion['is_unlocked_by_default'],
-                        'in_unlocked_array' => in_array($champion['id'], $unlockedChampionIds),
-                        'user_has_unlocked' => $champion['user_has_unlocked']
-                    ]);
-                }
-            }
-        } else {
-            // Guest user
-            foreach ($championsArray as &$champion) {
-                $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'];
-                $champion['user_can_unlock'] = false;
-                
-                if (isset($champion['skins']) && is_array($champion['skins'])) {
-                    foreach ($champion['skins'] as &$skin) {
-                        $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'];
-                        $skin['user_can_unlock'] = false;
+            } else {
+                // Guest user
+                foreach ($championsArray as &$champion) {
+                    $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'];
+                    $champion['user_can_unlock'] = false;
+
+                    if (isset($champion['skins']) && is_array($champion['skins'])) {
+                        foreach ($champion['skins'] as &$skin) {
+                            $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'];
+                            $skin['user_can_unlock'] = false;
+                        }
                     }
                 }
             }
+
+            return response()->json([
+                'success' => true,
+                'data' => $championsArray,
+                'message' => 'Champions retrieved successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in ChampionController@index: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch champions',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        
-        return response()->json([
-            'success' => true,
-            'data' => $championsArray,
-            'message' => 'Champions retrieved successfully'
-        ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('Error in ChampionController@index: ' . $e->getMessage());
-        \Log::error('Stack trace: ' . $e->getTraceAsString());
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to fetch champions',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
     /**
      * Display the specified resource.
      */
@@ -94,29 +94,31 @@ class ChampionController extends Controller
     {
         try {
             \Log::info('ChampionController@show called for champion ID: ' . $champion->id);
-            
+
             $champion->load([
-                'abilities', 
-                'skins', 
+                'abilities',
+                'skins',
                 'rework.abilities',
                 'rework.comments.user'
             ]);
-            
+
             // Προσθήκη unlock status αν ο user είναι logged in
             if ($request->user()) {
                 $user = $request->user();
-                
+
+                $unlockedChampionIds = $user->getUnlockedChampionIds();
+                $unlockedSkinIds = $user->getUnlockedSkinIds();
                 // Champion unlock status
-                $champion->user_has_unlocked = $champion->is_unlocked_by_default || 
-                                              $user->hasUnlocked($champion);
-                $champion->user_can_unlock = $user->canUnlock($champion);
-                
+                $$unlockedChampionIds = $user->getUnlockedChampionIds();
+                $champion->user_has_unlocked = $champion->is_unlocked_by_default ||
+                    in_array($champion->id, $unlockedChampionIds);
+
                 // Skins unlock status
                 if ($champion->skins) {
                     $unlockedSkinIds = $user->getUnlockedSkinIds();
                     $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                        $skin->user_has_unlocked = $skin->is_unlocked_by_default || 
-                                                  in_array($skin->id, $unlockedSkinIds);
+                        $skin->user_has_unlocked = $skin->is_unlocked_by_default ||
+                            in_array($skin->id, $unlockedSkinIds);
                         $skin->user_can_unlock = $user->canUnlock($skin);
                     });
                 }
@@ -124,7 +126,7 @@ class ChampionController extends Controller
                 // Αν δεν είναι logged in
                 $champion->user_has_unlocked = $champion->is_unlocked_by_default;
                 $champion->user_can_unlock = false;
-                
+
                 if ($champion->skins) {
                     $champion->skins->each(function ($skin) {
                         $skin->user_has_unlocked = $skin->is_unlocked_by_default;
@@ -132,7 +134,7 @@ class ChampionController extends Controller
                     });
                 }
             }
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $champion,
@@ -140,7 +142,7 @@ class ChampionController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in ChampionController@show: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch champion details',
@@ -158,22 +160,22 @@ class ChampionController extends Controller
             $champions = Champion::where('role', $role)
                 ->with(['skins', 'abilities'])
                 ->get();
-            
+
             // Προσθήκη unlock status
             if ($request->user()) {
                 $user = $request->user();
                 $unlockedChampionIds = $user->getUnlockedChampionIds();
                 $unlockedSkinIds = $user->getUnlockedSkinIds();
-                
+
                 $champions->each(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
-                    $champion->user_has_unlocked = $champion->is_unlocked_by_default || 
-                                                  in_array($champion->id, $unlockedChampionIds);
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default ||
+                        in_array($champion->id, $unlockedChampionIds);
                     $champion->user_can_unlock = $user->canUnlock($champion);
-                    
+
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                            $skin->user_has_unlocked = $skin->is_unlocked_by_default || 
-                                                      in_array($skin->id, $unlockedSkinIds);
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default ||
+                                in_array($skin->id, $unlockedSkinIds);
                             $skin->user_can_unlock = $user->canUnlock($skin);
                         });
                     }
@@ -182,7 +184,7 @@ class ChampionController extends Controller
                 $champions->each(function ($champion) {
                     $champion->user_has_unlocked = $champion->is_unlocked_by_default;
                     $champion->user_can_unlock = false;
-                    
+
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) {
                             $skin->user_has_unlocked = $skin->is_unlocked_by_default;
@@ -191,7 +193,7 @@ class ChampionController extends Controller
                     }
                 });
             }
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $champions,
@@ -199,7 +201,7 @@ class ChampionController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in ChampionController@getChampionsByRole: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch champions by role',
@@ -215,31 +217,31 @@ class ChampionController extends Controller
     {
         try {
             $query = $request->get('q', '');
-            
-            $champions = Champion::where(function($q) use ($query) {
+
+            $champions = Champion::where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('title', 'like', "%{$query}%")
-                  ->orWhere('role', 'like', "%{$query}%")
-                  ->orWhere('region', 'like', "%{$query}%");
+                    ->orWhere('title', 'like', "%{$query}%")
+                    ->orWhere('role', 'like', "%{$query}%")
+                    ->orWhere('region', 'like', "%{$query}%");
             })
-            ->with(['skins', 'abilities'])
-            ->get();
-            
+                ->with(['skins', 'abilities'])
+                ->get();
+
             // Προσθήκη unlock status
             if ($request->user()) {
                 $user = $request->user();
                 $unlockedChampionIds = $user->getUnlockedChampionIds();
                 $unlockedSkinIds = $user->getUnlockedSkinIds();
-                
+
                 $champions->each(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
-                    $champion->user_has_unlocked = $champion->is_unlocked_by_default || 
-                                                  in_array($champion->id, $unlockedChampionIds);
+                    $champion->user_has_unlocked = $champion->is_unlocked_by_default ||
+                        in_array($champion->id, $unlockedChampionIds);
                     $champion->user_can_unlock = $user->canUnlock($champion);
-                    
+
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                            $skin->user_has_unlocked = $skin->is_unlocked_by_default || 
-                                                      in_array($skin->id, $unlockedSkinIds);
+                            $skin->user_has_unlocked = $skin->is_unlocked_by_default ||
+                                in_array($skin->id, $unlockedSkinIds);
                             $skin->user_can_unlock = $user->canUnlock($skin);
                         });
                     }
@@ -248,7 +250,7 @@ class ChampionController extends Controller
                 $champions->each(function ($champion) {
                     $champion->user_has_unlocked = $champion->is_unlocked_by_default;
                     $champion->user_can_unlock = false;
-                    
+
                     if ($champion->skins) {
                         $champion->skins->each(function ($skin) {
                             $skin->user_has_unlocked = $skin->is_unlocked_by_default;
@@ -257,7 +259,7 @@ class ChampionController extends Controller
                     }
                 });
             }
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $champions,
@@ -265,7 +267,7 @@ class ChampionController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in ChampionController@search: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to search champions',
@@ -280,7 +282,7 @@ class ChampionController extends Controller
     public function test(): JsonResponse
     {
         \Log::info('Test endpoint called');
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Test endpoint working!',
