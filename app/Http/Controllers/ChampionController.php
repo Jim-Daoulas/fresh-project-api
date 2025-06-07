@@ -94,6 +94,14 @@ class ChampionController extends Controller
     {
         try {
             \Log::info('ChampionController@show called for champion ID: ' . $champion->id);
+            // Πρόσθεσε αυτό:
+        \Log::info('Auth check:', [
+            'has_user' => $request->user() ? 'YES' : 'NO',
+            'user_id' => $request->user() ? $request->user()->id : 'NULL',
+            'auth_header' => $request->header('Authorization') ? 'EXISTS' : 'MISSING'
+        ]);
+        
+        $champions = Champion::with(['skins', 'abilities'])->get();
 
             $champion->load([
                 'abilities',
