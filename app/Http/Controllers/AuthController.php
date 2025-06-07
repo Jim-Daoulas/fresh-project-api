@@ -8,11 +8,10 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use App\Helpers\Device;
 use App\Enum\RoleCode;
-use Laravel\Sanctum\HasApiTokens;
-use Laravel\Sanctum\NewAccessToken;
 
 class AuthController extends Controller
 {
+
     public function me(Request $request)
     {
         return response()->json([
@@ -45,15 +44,13 @@ class AuthController extends Controller
             'password' => bcrypt($fields['password'])
         ]);
 
+        // Assign role
         if ($request->role) {
             $roleId = null;
             
-            // Αν το role είναι αριθμός (από το middleware)
             if (is_numeric($request->role)) {
                 $roleId = (int)$request->role;
-            }
-            // Αν το role είναι string (από manually request)
-            else if ($request->role === 'admin') {
+            } else if ($request->role === 'admin') {
                 $roleId = RoleCode::admin;
             } else if ($request->role === 'user') {
                 $roleId = RoleCode::user;
@@ -67,14 +64,18 @@ class AuthController extends Controller
             }
         }
 
+        // Initialize progression system for new user
+        $user->initializeWithDefaults();
+
         $token = $user->createToken(Device::tokenName())->plainTextToken;
 
         $response = [
             'success' => true,
-            'message' => 'User created',
+            'message' => 'User created and progression initialized',
             'data' => [
                 'user' => $user,
-                'token' => $token
+                'token' => $token,
+                'progression_initialized' => true
             ]
         ];
 
@@ -88,33 +89,22 @@ class AuthController extends Controller
             'password' => 'required|string|min:6'
         ]);
 
-        // Check email
         $user = User::where('email', $fields['email'])->first();
 
-        // Check password
-        if (!$user) {
+        if (!$user || !Hash::check($fields['password'], $user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bad creds'
+                'message' => 'Bad credentials'
             ], 401);
         }
 
-        if (!Hash::check($fields['password'], $user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bad creds'
-            ], 401);
-        }
-
+        // Role checking logic (existing code)
         if ($request->role) {
             $roleId = null;
             
-            // Αν το role είναι αριθμός (από το middleware)
             if (is_numeric($request->role)) {
                 $roleId = (int)$request->role;
-            }
-            // Αν το role είναι string (από manually request)
-            else if ($request->role === 'admin') {
+            } else if ($request->role === 'admin') {
                 $roleId = RoleCode::admin;
             } else if ($request->role === 'user') {
                 $roleId = RoleCode::user;
@@ -131,6 +121,9 @@ class AuthController extends Controller
             }
         }
 
+        // Handle daily login bonus
+        $dailyBonusResult = $user->claimDailyBonus();
+
         $token = $user->createToken(Device::tokenName())->plainTextToken;
 
         $response = [
@@ -138,7 +131,8 @@ class AuthController extends Controller
             'message' => 'User logged in',
             'data' => [
                 'user' => $user,
-                'token' => $token
+                'token' => $token,
+                'daily_bonus' => $dailyBonusResult
             ]
         ];
 
