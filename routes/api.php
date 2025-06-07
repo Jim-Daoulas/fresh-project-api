@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 Route::get('/', function () {
     return response()->json(['message' => 'hello World']);
@@ -35,3 +36,30 @@ Route::get('/debug-unlock/{userId}', function($userId) {
         return response()->json(['error' => $e->getMessage()]);
     }
 });
+Route::get('/test-champions', function(Request $request) {
+    $user = $request->user();
+    if (!$user) {
+        return response()->json(['error' => 'Not authenticated']);
+    }
+    
+    $unlockedIds = $user->getUnlockedChampionIds();
+    $champion4 = \App\Models\Champion::find(4);
+    $champion5 = \App\Models\Champion::find(5);
+    
+    return response()->json([
+        'user_id' => $user->id,
+        'unlocked_ids' => $unlockedIds,
+        'champion_4' => [
+            'id' => 4,
+            'name' => $champion4->name,
+            'is_unlocked_by_default' => $champion4->is_unlocked_by_default,
+            'should_be_unlocked' => in_array(4, $unlockedIds)
+        ],
+        'champion_5' => [
+            'id' => 5,  
+            'name' => $champion5->name,
+            'is_unlocked_by_default' => $champion5->is_unlocked_by_default,
+            'should_be_unlocked' => in_array(5, $unlockedIds)
+        ]
+    ]);
+})->middleware('auth:sanctum');
