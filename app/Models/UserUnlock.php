@@ -14,7 +14,7 @@ class UserUnlock extends Model
     protected $fillable = [
         'user_id',
         'unlockable_type',
-        'unlockable_id',
+        'unlockable_id', 
         'cost_paid',
     ];
 
@@ -22,6 +22,7 @@ class UserUnlock extends Model
         'cost_paid' => 'integer',
     ];
 
+    // Relationships
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -32,40 +33,19 @@ class UserUnlock extends Model
         return $this->morphTo();
     }
 
-    // Scope για champions
+    // Helper scopes
     public function scopeChampions($query)
     {
         return $query->where('unlockable_type', Champion::class);
     }
 
-    // Scope για skins
     public function scopeSkins($query)
     {
         return $query->where('unlockable_type', Skin::class);
     }
 
-    // Helper method για να ελέγξουμε αν κάτι είναι unlocked
-    public static function isUnlocked(int $userId, string $type, int $id): bool
+    public function scopeForUser($query, $userId)
     {
-        return static::where('user_id', $userId)
-            ->where('unlockable_type', $type)
-            ->where('unlockable_id', $id)
-            ->exists();
-    }
-
-    // Helper method για unlock
-    public static function unlock(int $userId, Model $unlockable): bool
-    {
-        try {
-            static::create([
-                'user_id' => $userId,
-                'unlockable_type' => get_class($unlockable),
-                'unlockable_id' => $unlockable->id,
-                'cost_paid' => $unlockable->unlock_cost,
-            ]);
-            return true;
-        } catch (\Exception $e) {
-            return false; // Ήδη unlocked ή άλλο σφάλμα
-        }
+        return $query->where('user_id', $userId);
     }
 }

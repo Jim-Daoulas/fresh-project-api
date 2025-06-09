@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -23,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'points',
     ];
 
     /**
@@ -45,6 +47,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'points' => 'integer',
         ];
     }
 
@@ -53,31 +56,69 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class);
     }
 
-    public function unlockedChampions(): BelongsToMany
+    // ✅ ADDED: Unlock system relationships and methods
+    public function unlocks(): HasMany
     {
-        return $this->belongsToMany(Champion::class, 'champion_unlocks')
-                    ->withTimestamps()
-                    ->withPivot('unlocked_at');
+        return $this->hasMany(UserUnlock::class);
     }
 
     // Helper method να unlock έναν champion
     public function unlockChampion($championId): bool
     {
+        $champion = Champion::find($championId);
+        
+        if (!$champion) {
+            return false;
+        }
+
         // Έλεγξε αν ήδη έχει unlock
-        if ($this->unlockedChampions()->where('champion_id', $championId)->exists()) {
+        if ($this->hasUnlocked($champion)) {
             return false; // Ήδη unlocked
         }
 
-        $this->unlockedChampions()->attach($championId, [
-            'unlocked_at' => now()
+        // Έλεγξε αν έχει αρκετά points
+        if ($this->points < $champion->unlock_cost) {
+            return false; // Όχι αρκετά points
+        }
+
+        // Create the unlock record
+        UserUnlock::create([
+            'user_id' => $this->id,
+            'unlockable_type' => Champion::class,
+            'unlockable_id' => $championId,
+            'cost_paid' => $champion->unlock_cost
         ]);
+
+        // Αφαίρεσε τα points
+        $this->decrement('points', $champion->unlock_cost);
 
         return true;
     }
 
-    // Helper method να ελέγχουμε αν έχει unlock έναν champion
+    // Helper method να ελέγχουμε αν έχει unlock κάτι
+    public function hasUnlocked($model): bool
+    {
+        return $this->unlocks()
+                   ->where('unlockable_type', get_class($model))
+                   ->where('unlockable_id', $model->id)
+                   ->exists();
+    }
+
+    // Get unlocked champion IDs
+    public function getUnlockedChampionIds(): array
+    {
+        return $this->unlocks()
+                   ->where('unlockable_type', Champion::class)
+                   ->pluck('unlockable_id')
+                   ->toArray();
+    }
+
+    // Check if user has unlocked a specific champion
     public function hasUnlockedChampion($championId): bool
     {
-        return $this->unlockedChampions()->where('champion_id', $championId)->exists();
+        return $this->unlocks()
+                   ->where('unlockable_type', Champion::class)
+                   ->where('unlockable_id', $championId)
+                   ->exists();
     }
 }
