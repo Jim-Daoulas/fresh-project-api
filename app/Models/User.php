@@ -4,12 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -26,7 +23,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'points',
     ];
 
     /**
@@ -49,7 +45,6 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'points' => 'integer',
         ];
     }
 
@@ -58,140 +53,31 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class);
     }
 
-    public function unlocks(): HasMany
+    public function unlockedChampions(): BelongsToMany
     {
-        return $this->hasMany(UserUnlock::class);
+        return $this->belongsToMany(Champion::class, 'champion_unlocks')
+                    ->withTimestamps()
+                    ->withPivot('unlocked_at');
     }
 
-    // Progression System Methods
-    public function addPoints(int $amount): void
+    // Helper method να unlock έναν champion
+    public function unlockChampion($championId): bool
     {
-        $this->increment('points', $amount);
-    }
-
-    public function deductPoints(int $amount): bool
-    {
-        if ($this->points >= $amount) {
-            $this->decrement('points', $amount);
-            return true;
-        }
-        return false;
-    }
-
-    public function hasUnlocked(Model $unlockable): bool
-    {
-        return UserUnlock::isUnlocked(
-            $this->id, 
-            get_class($unlockable), 
-            $unlockable->id
-        );
-    }
-
-    public function canUnlock(Model $unlockable): bool
-    {
-        // Έλεγχος αν έχει αρκετά points και δεν το έχει ήδη unlock
-        return $this->points >= $unlockable->unlock_cost && 
-               !$this->hasUnlocked($unlockable) &&
-               !$unlockable->is_unlocked_by_default;
-    }
-
-    public function unlock(Model $unlockable): array
-    {
-        // Έλεγχος αν είναι ήδη unlocked by default
-        if ($unlockable->is_unlocked_by_default) {
-            return [
-                'success' => false,
-                'message' => 'This item is already unlocked by default'
-            ];
+        // Έλεγξε αν ήδη έχει unlock
+        if ($this->unlockedChampions()->where('champion_id', $championId)->exists()) {
+            return false; // Ήδη unlocked
         }
 
-        // Έλεγχος αν το έχει ήδη unlock
-        if ($this->hasUnlocked($unlockable)) {
-            return [
-                'success' => false,
-                'message' => 'You have already unlocked this item'
-            ];
-        }
+        $this->unlockedChampions()->attach($championId, [
+            'unlocked_at' => now()
+        ]);
 
-        // Έλεγχος αν έχει αρκετά points
-        if ($this->points < $unlockable->unlock_cost) {
-            return [
-                'success' => false,
-                'message' => 'Insufficient points',
-                'required' => $unlockable->unlock_cost,
-                'current' => $this->points
-            ];
-        }
-
-        // Προσπάθεια unlock
-        if ($this->deductPoints($unlockable->unlock_cost)) {
-            if (UserUnlock::unlock($this->id, $unlockable)) {
-                return [
-                    'success' => true,
-                    'message' => 'Successfully unlocked!',
-                    'remaining_points' => $this->points
-                ];
-            } else {
-                // Αν αποτύχει, επιστροφή των points
-                $this->addPoints($unlockable->unlock_cost);
-                return [
-                    'success' => false,
-                    'message' => 'Failed to unlock. Please try again.'
-                ];
-            }
-        }
-
-        return [
-            'success' => false,
-            'message' => 'An error occurred during unlock'
-        ];
+        return true;
     }
 
-    // Helper methods για να πάρουμε unlocked items
-    public function getUnlockedChampions()
+    // Helper method να ελέγχουμε αν έχει unlock έναν champion
+    public function hasUnlockedChampion($championId): bool
     {
-        return $this->unlocks()
-            ->where('unlockable_type', Champion::class)
-            ->with('unlockable')
-            ->get()
-            ->pluck('unlockable');
-    }
-
-    public function getUnlockedSkins()
-    {
-        return $this->unlocks()
-            ->where('unlockable_type', Skin::class)
-            ->with('unlockable')
-            ->get()
-            ->pluck('unlockable');
-    }
-
-    public function getUnlockedChampionIds(): array
-{
-    error_log('=== getUnlockedChampionIds called for user: ' . $this->id . ' ===');
-    
-    try {
-        // Direct query για debug
-        $ids = DB::table('user_unlocks')
-            ->where('user_id', $this->id)
-            ->where('unlockable_type', 'App\\Models\\Champion')
-            ->pluck('unlockable_id')
-            ->toArray();
-        
-        error_log("Direct query result: " . json_encode($ids));
-        \Log::info("Direct query - User {$this->id} unlocked: " . json_encode($ids));
-        
-        return $ids;
-    } catch (\Exception $e) {
-        error_log('Error in getUnlockedChampionIds: ' . $e->getMessage());
-        return [];
-    }
-}
-    public function getUnlockedSkinIds(): array
-    {
-        return $this->unlocks()
-            ->where('unlockable_type', Skin::class)
-            ->pluck('unlockable_id')
-            ->toArray();
+        return $this->unlockedChampions()->where('champion_id', $championId)->exists();
     }
 }

@@ -12,85 +12,40 @@ class ChampionController extends Controller
      * Display a listing of the resource.
      */
     public function index(Request $request): JsonResponse
-{
-    try {
-        \Log::info('ChampionController@index called');
-        
-        $champions = Champion::with(['skins', 'abilities'])->get();
-        
-        // Convert to array for easy manipulation
-        $championsArray = $champions->toArray();
-        error_log('=== BEFORE USER CHECK ===');
-        error_log('Has user: ' . ($request->user() ? 'YES' : 'NO'));
-        error_log('Auth header: ' . ($request->header('Authorization') ? 'EXISTS' : 'MISSING'));
-        // Add unlock status
-        if ($request->user()) {
+    {
+        try {
+            \Log::info('ChampionController@index called');
+            
             $user = $request->user();
-            error_log('=== GETTING UNLOCKED CHAMPIONS ===');
-        error_log('User ID: ' . $user->id);
-            error_log('=== CALLING getUnlockedChampionIds ===');
-$unlockedChampionIds = $user->getUnlockedChampionIds();
-error_log('=== AFTER getUnlockedChampionIds ===');
-error_log('Result: ' . json_encode($unlockedChampionIds));
-            error_log('Unlocked champion IDs: ' . json_encode($unlockedChampionIds));
-            $unlockedSkinIds = $user->getUnlockedSkinIds();
-            error_log('Unlocked skin IDs: ' . json_encode($unlockedSkinIds));
+            $userId = $user ? $user->id : null;
             
-            \Log::info('User ' . $user->id . ' unlocked champions: ' . json_encode($unlockedChampionIds));
-            \Log::info('User points: ' . $user->points);
+            $champions = Champion::all();
             
-            foreach ($championsArray as &$champion) {
-                // Add unlock status to champion
-                $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'] || 
-                                               in_array($champion['id'], $unlockedChampionIds);
-                
-                // ✅ FIXED: Check if user can afford + not already unlocked
-                $champion['user_can_unlock'] = !$champion['user_has_unlocked'] && 
-                                             $user->points >= $champion['unlock_cost'];
-                
-                // Add unlock status to skins
-                if (isset($champion['skins']) && is_array($champion['skins'])) {
-                    foreach ($champion['skins'] as &$skin) {
-                        $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'] || 
-                                                    in_array($skin['id'], $unlockedSkinIds);
-                        
-                        // ✅ FIXED: Check if user can afford skin
-                        $skin['user_can_unlock'] = !$skin['user_has_unlocked'] && 
-                                                  $user->points >= $skin['unlock_cost'];
-                    }
-                }
-            }
-        } else {
-    // ✅ ΑΛΛΑΓΗ: Guests βλέπουν μόνο τους πρώτους 3 champions unlocked
-    foreach ($championsArray as &$champion) {
-        $champion['user_has_unlocked'] = in_array($champion['id'], [1, 2, 3]); // Μόνο οι πρώτοι 3
-        $champion['user_can_unlock'] = false; // Guests can't unlock
-        
-        if (isset($champion['skins']) && is_array($champion['skins'])) {
-            foreach ($champion['skins'] as &$skin) {
-                $skin['user_has_unlocked'] = false; // Όλα τα skins locked για guests
-                $skin['user_can_unlock'] = false;
-            }
+            // Προσθέτουμε το is_locked για κάθε champion
+            $champions = $champions->map(function ($champion) use ($userId) {
+                $champion->is_locked = !$champion->isUnlockedForUser($userId);
+                return $champion;
+            });
+            
+            \Log::info('Champions count: ' . $champions->count());
+            
+            return response()->json([
+                'success' => true,
+                'data' => $champions,
+                'message' => 'Champions retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in ChampionController@index: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch champions',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
-}
-        
-        return response()->json([
-            'success' => true,
-            'data' => $championsArray,
-            'message' => 'Champions retrieved successfully'
-        ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('Error in ChampionController@index: ' . $e->getMessage());
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to fetch champions',
-            'error' => $e->getMessage()
-        ], 500);
-    }
-}
+
     /**
      * Display the specified resource.
      */
@@ -98,55 +53,30 @@ error_log('Result: ' . json_encode($unlockedChampionIds));
     {
         try {
             \Log::info('ChampionController@show called for champion ID: ' . $champion->id);
-            // Πρόσθεσε αυτό:
-        \Log::info('Auth check:', [
-            'has_user' => $request->user() ? 'YES' : 'NO',
-            'user_id' => $request->user() ? $request->user()->id : 'NULL',
-            'auth_header' => $request->header('Authorization') ? 'EXISTS' : 'MISSING'
-        ]);
-        
-        $champions = Champion::with(['skins', 'abilities'])->get();
-
+            
+            $user = $request->user();
+            $userId = $user ? $user->id : null;
+            
+            // Έλεγξε αν ο champion είναι locked
+            $isLocked = !$champion->isUnlockedForUser($userId);
+            
+            if ($isLocked) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This champion is locked. Please unlock it first.',
+                    'is_locked' => true
+                ], 403);
+            }
+            
             $champion->load([
-                'abilities',
-                'skins',
+                'abilities', 
+                'skins', 
                 'rework.abilities',
                 'rework.comments.user'
             ]);
-
-            // Προσθήκη unlock status αν ο user είναι logged in
-            if ($request->user()) {
-                $user = $request->user();
-
-                $unlockedChampionIds = $user->getUnlockedChampionIds();
-                $unlockedSkinIds = $user->getUnlockedSkinIds();
-                // Champion unlock status
-                $unlockedChampionIds = $user->getUnlockedChampionIds();
-                $champion->user_has_unlocked = $champion->is_unlocked_by_default ||
-                    in_array($champion->id, $unlockedChampionIds);
-
-                // Skins unlock status
-                if ($champion->skins) {
-                    $unlockedSkinIds = $user->getUnlockedSkinIds();
-                    $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                        $skin->user_has_unlocked = $skin->is_unlocked_by_default ||
-                            in_array($skin->id, $unlockedSkinIds);
-                        $skin->user_can_unlock = $user->canUnlock($skin);
-                    });
-                }
-            } else {
-                // Αν δεν είναι logged in
-                $champion->user_has_unlocked = $champion->is_unlocked_by_default;
-                $champion->user_can_unlock = false;
-
-                if ($champion->skins) {
-                    $champion->skins->each(function ($skin) {
-                        $skin->user_has_unlocked = $skin->is_unlocked_by_default;
-                        $skin->user_can_unlock = false;
-                    });
-                }
-            }
-
+            
+            $champion->is_locked = false;
+            
             return response()->json([
                 'success' => true,
                 'data' => $champion,
@@ -154,7 +84,7 @@ error_log('Result: ' . json_encode($unlockedChampionIds));
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in ChampionController@show: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch champion details',
@@ -164,125 +94,54 @@ error_log('Result: ' . json_encode($unlockedChampionIds));
     }
 
     /**
-     * Get champions by role with unlock status
+     * Unlock a champion for the authenticated user
      */
-    public function getChampionsByRole(Request $request, string $role): JsonResponse
+    public function unlock(Request $request, Champion $champion): JsonResponse
     {
         try {
-            $champions = Champion::where('role', $role)
-                ->with(['skins', 'abilities'])
-                ->get();
-
-            // Προσθήκη unlock status
-            if ($request->user()) {
-                $user = $request->user();
-                $unlockedChampionIds = $user->getUnlockedChampionIds();
-                $unlockedSkinIds = $user->getUnlockedSkinIds();
-
-                $champions->each(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
-                    $champion->user_has_unlocked = $champion->is_unlocked_by_default ||
-                        in_array($champion->id, $unlockedChampionIds);
-                    $champion->user_can_unlock = $user->canUnlock($champion);
-
-                    if ($champion->skins) {
-                        $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                            $skin->user_has_unlocked = $skin->is_unlocked_by_default ||
-                                in_array($skin->id, $unlockedSkinIds);
-                            $skin->user_can_unlock = $user->canUnlock($skin);
-                        });
-                    }
-                });
-            } else {
-                $champions->each(function ($champion) {
-                    $champion->user_has_unlocked = $champion->is_unlocked_by_default;
-                    $champion->user_can_unlock = false;
-
-                    if ($champion->skins) {
-                        $champion->skins->each(function ($skin) {
-                            $skin->user_has_unlocked = $skin->is_unlocked_by_default;
-                            $skin->user_can_unlock = false;
-                        });
-                    }
-                });
+            $user = $request->user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication required to unlock champions'
+                ], 401);
             }
 
-            return response()->json([
-                'success' => true,
-                'data' => $champions,
-                'message' => "Champions with role '{$role}' retrieved successfully"
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error in ChampionController@getChampionsByRole: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch champions by role',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Search champions with unlock status
-     */
-    public function search(Request $request): JsonResponse
-    {
-        try {
-            $query = $request->get('q', '');
-
-            $champions = Champion::where(function ($q) use ($query) {
-                $q->where('name', 'like', "%{$query}%")
-                    ->orWhere('title', 'like', "%{$query}%")
-                    ->orWhere('role', 'like', "%{$query}%")
-                    ->orWhere('region', 'like', "%{$query}%");
-            })
-                ->with(['skins', 'abilities'])
-                ->get();
-
-            // Προσθήκη unlock status
-            if ($request->user()) {
-                $user = $request->user();
-                $unlockedChampionIds = $user->getUnlockedChampionIds();
-                $unlockedSkinIds = $user->getUnlockedSkinIds();
-
-                $champions->each(function ($champion) use ($user, $unlockedChampionIds, $unlockedSkinIds) {
-                    $champion->user_has_unlocked = $champion->is_unlocked_by_default ||
-                        in_array($champion->id, $unlockedChampionIds);
-                    $champion->user_can_unlock = $user->canUnlock($champion);
-
-                    if ($champion->skins) {
-                        $champion->skins->each(function ($skin) use ($user, $unlockedSkinIds) {
-                            $skin->user_has_unlocked = $skin->is_unlocked_by_default ||
-                                in_array($skin->id, $unlockedSkinIds);
-                            $skin->user_can_unlock = $user->canUnlock($skin);
-                        });
-                    }
-                });
-            } else {
-                $champions->each(function ($champion) {
-                    $champion->user_has_unlocked = $champion->is_unlocked_by_default;
-                    $champion->user_can_unlock = false;
-
-                    if ($champion->skins) {
-                        $champion->skins->each(function ($skin) {
-                            $skin->user_has_unlocked = $skin->is_unlocked_by_default;
-                            $skin->user_can_unlock = false;
-                        });
-                    }
-                });
+            // Έλεγξε αν ήδη είναι unlocked
+            if ($champion->isUnlockedForUser($user->id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Champion is already unlocked'
+                ], 400);
             }
 
-            return response()->json([
-                'success' => true,
-                'data' => $champions,
-                'message' => "Search results for '{$query}'"
-            ]);
+            // Unlock τον champion
+            $unlocked = $user->unlockChampion($champion->id);
+            
+            if ($unlocked) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Champion unlocked successfully!',
+                    'champion' => [
+                        'id' => $champion->id,
+                        'name' => $champion->name,
+                        'is_locked' => false
+                    ]
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to unlock champion'
+                ], 500);
+            }
+            
         } catch (\Exception $e) {
-            \Log::error('Error in ChampionController@search: ' . $e->getMessage());
-
+            \Log::error('Error in ChampionController@unlock: ' . $e->getMessage());
+            
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to search champions',
+                'message' => 'Failed to unlock champion',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -294,7 +153,7 @@ error_log('Result: ' . json_encode($unlockedChampionIds));
     public function test(): JsonResponse
     {
         \Log::info('Test endpoint called');
-
+        
         return response()->json([
             'success' => true,
             'message' => 'Test endpoint working!',
