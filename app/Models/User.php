@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Carbon\Carbon;
 
 class User extends Authenticatable
 {
@@ -17,6 +18,7 @@ class User extends Authenticatable
         'email',
         'password',
         'points',
+        'last_login_date',
     ];
 
     protected $hidden = [
@@ -30,7 +32,29 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'points' => 'integer',
+            'last_login_date' => 'date',
         ];
+    }
+
+    // ✅ DAILY LOGIN SYSTEM
+    public function checkDailyLogin(): bool
+    {
+        $today = Carbon::today();
+        
+        // Αν δεν έχει κάνει login σήμερα
+        if (!$this->last_login_date || !$this->last_login_date->isSameDay($today)) {
+            $this->increment('points', 5);
+            $this->update(['last_login_date' => $today]);
+            return true; // Πήρε daily bonus
+        }
+        
+        return false; // Δεν πήρε bonus
+    }
+
+    // ✅ COMMENT POINTS SYSTEM
+    public function addCommentPoints(): void
+    {
+        $this->increment('points', 10);
     }
 
     public function roles(): BelongsToMany
@@ -42,11 +66,10 @@ class User extends Authenticatable
     public function unlockedChampions(): BelongsToMany
     {
         return $this->belongsToMany(Champion::class, 'champion_unlocks')
-                    ->withTimestamps()
-                    ->withPivot('unlocked_at');
+            ->withTimestamps()
+            ->withPivot('unlocked_at');
     }
 
-    // Unlock έναν champion
     public function unlockChampion($championId): bool
     {
         $champion = Champion::find($championId);
@@ -55,39 +78,32 @@ class User extends Authenticatable
             return false;
         }
 
-        // Έλεγξε αν ήδη έχει unlock
         if ($this->hasUnlockedChampion($championId)) {
             return false;
         }
 
-        // Έλεγξε αν είναι default unlocked
         if ($champion->is_unlocked_by_default) {
-            return false; // Δεν χρειάζεται unlock
+            return false;
         }
 
-        // Έλεγξε αν έχει αρκετά points
         if ($this->points < $champion->unlock_cost) {
             return false;
         }
 
-        // Create the unlock record
         $this->unlockedChampions()->attach($championId, [
             'unlocked_at' => now()
         ]);
 
-        // Αφαίρεσε τα points
         $this->decrement('points', $champion->unlock_cost);
 
         return true;
     }
 
-    // Έλεγξε αν έχει unlock έναν champion
     public function hasUnlockedChampion($championId): bool
     {
         return $this->unlockedChampions()->where('champion_id', $championId)->exists();
     }
 
-    // Get unlocked champion IDs
     public function getUnlockedChampionIds(): array
     {
         return $this->unlockedChampions()->pluck('champion_id')->toArray();
