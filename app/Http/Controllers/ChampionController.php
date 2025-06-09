@@ -61,19 +61,19 @@ error_log('Result: ' . json_encode($unlockedChampionIds));
                 }
             }
         } else {
-            // ✅ FIXED: Guest users should see some champions as unlocked by default
-            foreach ($championsArray as &$champion) {
-                $champion['user_has_unlocked'] = $champion['is_unlocked_by_default'];
-                $champion['user_can_unlock'] = false; // Guests can't unlock
-                
-                if (isset($champion['skins']) && is_array($champion['skins'])) {
-                    foreach ($champion['skins'] as &$skin) {
-                        $skin['user_has_unlocked'] = $skin['is_unlocked_by_default'];
-                        $skin['user_can_unlock'] = false;
-                    }
-                }
+    // ✅ ΑΛΛΑΓΗ: Guests βλέπουν μόνο τους πρώτους 3 champions unlocked
+    foreach ($championsArray as &$champion) {
+        $champion['user_has_unlocked'] = in_array($champion['id'], [1, 2, 3]); // Μόνο οι πρώτοι 3
+        $champion['user_can_unlock'] = false; // Guests can't unlock
+        
+        if (isset($champion['skins']) && is_array($champion['skins'])) {
+            foreach ($champion['skins'] as &$skin) {
+                $skin['user_has_unlocked'] = false; // Όλα τα skins locked για guests
+                $skin['user_can_unlock'] = false;
             }
         }
+    }
+}
         
         return response()->json([
             'success' => true,
