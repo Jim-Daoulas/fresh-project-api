@@ -20,7 +20,9 @@ class ChampionController extends Controller
         
         // Convert to array for easy manipulation
         $championsArray = $champions->toArray();
-        
+        error_log('=== BEFORE USER CHECK ===');
+        error_log('Has user: ' . ($request->user() ? 'YES' : 'NO'));
+        error_log('Auth header: ' . ($request->header('Authorization') ? 'EXISTS' : 'MISSING'));
         // Add unlock status
         if ($request->user()) {
             $user = $request->user();
