@@ -7,5 +7,5 @@ return [
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
     'max_age' => 0,
-    'supports_credentials' => false, // ✅ False για testing
+    'supports_credentials' => true, // ✅ False για testing
 ];
