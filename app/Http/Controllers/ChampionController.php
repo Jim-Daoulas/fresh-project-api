@@ -24,7 +24,9 @@ class ChampionController extends Controller
         // Add unlock status
         if ($request->user()) {
             $user = $request->user();
+            \Log::info('=== GETTING UNLOCKED CHAMPIONS ===');
             $unlockedChampionIds = $user->getUnlockedChampionIds();
+            \Log::info('Unlocked champion IDs result: ' . json_encode($unlockedChampionIds));
             $unlockedSkinIds = $user->getUnlockedSkinIds();
             
             \Log::info('User ' . $user->id . ' unlocked champions: ' . json_encode($unlockedChampionIds));
