@@ -2,10 +2,10 @@
 return [
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
     'allowed_methods' => ['*'],
-    'allowed_origins' => ['*'], // Προσωρινά για testing
+    'allowed_origins' => ['*'], // ✅ Προσωρινά για testing
     'allowed_origins_patterns' => [],
     'allowed_headers' => ['*'],
     'exposed_headers' => [],
     'max_age' => 0,
-    'supports_credentials' => false, // Άλλαξε σε false προσωρινά
+    'supports_credentials' => false, // ✅ False για testing
 ];
