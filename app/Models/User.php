@@ -168,18 +168,25 @@ class User extends Authenticatable
 
     public function getUnlockedChampionIds(): array
 {
-    // Direct query για debug
-    $ids = DB::table('user_unlocks')
-        ->where('user_id', $this->id)
-        ->where('unlockable_type', 'App\\Models\\Champion')
-        ->pluck('unlockable_id')
-        ->toArray();
+    error_log('=== getUnlockedChampionIds called for user: ' . $this->id . ' ===');
     
-    \Log::info("Direct query - User {$this->id} unlocked: " . json_encode($ids));
-    
-    return $ids;
+    try {
+        // Direct query για debug
+        $ids = DB::table('user_unlocks')
+            ->where('user_id', $this->id)
+            ->where('unlockable_type', 'App\\Models\\Champion')
+            ->pluck('unlockable_id')
+            ->toArray();
+        
+        error_log("Direct query result: " . json_encode($ids));
+        \Log::info("Direct query - User {$this->id} unlocked: " . json_encode($ids));
+        
+        return $ids;
+    } catch (\Exception $e) {
+        error_log('Error in getUnlockedChampionIds: ' . $e->getMessage());
+        return [];
+    }
 }
-
     public function getUnlockedSkinIds(): array
     {
         return $this->unlocks()
