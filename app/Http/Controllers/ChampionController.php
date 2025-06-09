@@ -26,7 +26,10 @@ class ChampionController extends Controller
             $user = $request->user();
             error_log('=== GETTING UNLOCKED CHAMPIONS ===');
         error_log('User ID: ' . $user->id);
-            $unlockedChampionIds = $user->getUnlockedChampionIds();
+            error_log('=== CALLING getUnlockedChampionIds ===');
+$unlockedChampionIds = $user->getUnlockedChampionIds();
+error_log('=== AFTER getUnlockedChampionIds ===');
+error_log('Result: ' . json_encode($unlockedChampionIds));
             error_log('Unlocked champion IDs: ' . json_encode($unlockedChampionIds));
             $unlockedSkinIds = $user->getUnlockedSkinIds();
             error_log('Unlocked skin IDs: ' . json_encode($unlockedSkinIds));
