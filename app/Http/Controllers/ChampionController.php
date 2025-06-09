@@ -121,7 +121,7 @@ error_log('Result: ' . json_encode($unlockedChampionIds));
                 $unlockedChampionIds = $user->getUnlockedChampionIds();
                 $unlockedSkinIds = $user->getUnlockedSkinIds();
                 // Champion unlock status
-                $$unlockedChampionIds = $user->getUnlockedChampionIds();
+                $unlockedChampionIds = $user->getUnlockedChampionIds();
                 $champion->user_has_unlocked = $champion->is_unlocked_by_default ||
                     in_array($champion->id, $unlockedChampionIds);
 
