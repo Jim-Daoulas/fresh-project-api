@@ -1,153 +1,24 @@
 <?php
 
-namespace App\Models;
+use App\Http\Controllers\ChampionController;
+use App\Http\Controllers\ReworkController;
+use App\Http\Controllers\CommentController;
+use Illuminate\Support\Facades\Route;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
-use Spatie\MediaLibrary\HasMedia;
-use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
+Route::get('/', [ChampionController::class, 'index']);
+Route::get('/champions', [ChampionController::class, 'index']);
+Route::get('/{champion}', [ChampionController::class, 'show']);
+Route::get('/role/{role}', [ChampionController::class, 'getChampionsByRole']);
+Route::get('/search', [ChampionController::class, 'search']);
 
-class Champion extends Model implements HasMedia
-{
-    use HasFactory, InteractsWithMedia;
-
-    protected $fillable = [
-        'name',
-        'title',
-        'role',
-        'region',
-        'description',
-        'image_url',
-        'stats',
-        'unlock_cost',
-        'is_unlocked_by_default',
-        'is_default_unlocked', // Added this too for compatibility
-    ];
-
-    protected $casts = [
-        'stats' => 'array',
-        'unlock_cost' => 'integer',
-        'is_unlocked_by_default' => 'boolean',
-        'is_default_unlocked' => 'boolean',
-    ];
-
-    // ✅ ADDED: Media Library Configuration
-    public function registerMediaCollections(): void
-    {
-        $this->addMediaCollection('avatars')
-            ->singleFile()
-            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-    }
-
-    public function registerMediaConversions(Media $media = null): void
-    {
-        $this->addMediaConversion('thumb')
-            ->width(150)
-            ->height(150)
-            ->sharpen(10);
-    }
-
-    // ✅ ADDED: Accessor για image_url από media
-    public function getImageUrlAttribute(): ?string
-    {
-        // Αν έχει media, επέστρεψε το URL
-        if ($this->hasMedia('avatars')) {
-            return $this->getFirstMediaUrl('avatars');
-        }
-        
-        // Αλλιώς επέστρεψε το image_url field
-        return $this->attributes['image_url'] ?? null;
-    }
-
-    public function abilities(): HasMany
-    {
-        return $this->hasMany(Ability::class);
-    }
-
-    public function skins(): HasMany
-    {
-        return $this->hasMany(Skin::class);
-    }
-
-    public function rework()
-    {
-        return $this->hasOne(Rework::class);
-    }
-
-    public function unlocks(): MorphMany
-    {
-        return $this->morphMany(UserUnlock::class, 'unlockable');
-    }
-
-    // ✅ FIXED: Added the missing method that ChampionController expects
-    public function isUnlockedForUser($userId = null): bool
-    {
-        // Αν δεν έχουμε user ID, check αν είναι default unlocked
-        if (!$userId) {
-            return $this->is_default_unlocked || $this->is_unlocked_by_default;
-        }
-
-        // Αν είναι default unlocked, return true
-        if ($this->is_default_unlocked || $this->is_unlocked_by_default) {
-            return true;
-        }
-
-        // Έλεγξε αν ο user έχει unlock αυτόν τον champion
-        return UserUnlock::where('user_id', $userId)
-                        ->where('unlockable_type', self::class)
-                        ->where('unlockable_id', $this->id)
-                        ->exists();
-    }
-
-    // Helper methods για unlock system
-    public function isUnlockedByDefault(): bool
-    {
-        return $this->is_unlocked_by_default || $this->is_default_unlocked;
-    }
-
-    public function isUnlockedBy(User $user): bool
-    {
-        return $this->isUnlockedForUser($user->id);
-    }
-
-    public function canBeUnlockedBy(User $user): bool
-    {
-        return !$this->isUnlockedByDefault() && 
-               !$this->isUnlockedForUser($user->id) && 
-               $user->points >= $this->unlock_cost;
-    }
-
-    // Scope για unlocked champions
-    public function scopeUnlockedByUser($query, User $user)
-    {
-        $unlockedIds = $user->getUnlockedChampionIds();
-        
-        return $query->where(function($q) use ($unlockedIds) {
-            $q->where('is_unlocked_by_default', true)
-              ->orWhere('is_default_unlocked', true)
-              ->orWhereIn('id', $unlockedIds);
-        });
-    }
-
-    // Scope για locked champions
-    public function scopeLockedForUser($query, User $user)
-    {
-        $unlockedIds = $user->getUnlockedChampionIds();
-        
-        return $query->where('is_unlocked_by_default', false)
-                    ->where('is_default_unlocked', false)
-                    ->whereNotIn('id', $unlockedIds);
-    }
-
-    // Append attributes για API responses
-    protected $appends = ['is_unlocked_by_default'];
-
-    // Accessor για API
-    public function getIsUnlockedByDefaultAttribute(): bool
-    {
-        return $this->attributes['is_unlocked_by_default'] ?? $this->attributes['is_default_unlocked'] ?? false;
-    }
-}
+// Protected routes - Για τα unlocks και σχόλια (απαιτούν αυθεντικοποίηση)
+Route::middleware(['auth:sanctum'])->group(function() {
+    // Unlock champion endpoint
+    Route::post('/{champion}/unlock', [ChampionController::class, 'unlock']);
+    
+    // Λήψη σχολίων για το rework ενός champion
+    Route::get('/{champion}/rework/comments', [CommentController::class, 'getChampionReworkComments']);
+    
+    // Προσθήκη σχολίου στο rework ενός champion
+    Route::post('/{champion}/rework/comments', [CommentController::class, 'addCommentToChampionRework']);
+});
