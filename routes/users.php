@@ -7,8 +7,7 @@ Route::get('/', function () {
     return response()->json(['message' => 'hello user']);
 });
 
-// ✅ Προσωρινά χωρίς middleware
-Route::prefix('auth')->group(base_path('routes/auth.php'));
+Route::prefix('auth')->middleware("setAuthRole:2")->group(base_path('routes/auth.php'));
 
 Route::prefix("user")
     ->middleware('auth:sanctum')
