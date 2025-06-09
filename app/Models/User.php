@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -166,12 +167,18 @@ class User extends Authenticatable
     }
 
     public function getUnlockedChampionIds(): array
-    {
-        return $this->unlocks()
-            ->where('unlockable_type', Champion::class)
-            ->pluck('unlockable_id')
-            ->toArray();
-    }
+{
+    // Direct query για debug
+    $ids = DB::table('user_unlocks')
+        ->where('user_id', $this->id)
+        ->where('unlockable_type', 'App\\Models\\Champion')
+        ->pluck('unlockable_id')
+        ->toArray();
+    
+    \Log::info("Direct query - User {$this->id} unlocked: " . json_encode($ids));
+    
+    return $ids;
+}
 
     public function getUnlockedSkinIds(): array
     {
