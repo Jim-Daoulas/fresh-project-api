@@ -19,4 +19,5 @@ Route::middleware(['auth:sanctum'])->group(function() {
     
     // Add points (για testing - μπορείς να το αφαιρέσεις αργότερα)
     Route::post('/add-points', [UnlockController::class, 'addPoints']);
+ 
 });
