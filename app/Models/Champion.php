@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -80,22 +81,23 @@ class Champion extends Model implements HasMedia
                     ->withTimestamps()
                     ->withPivot('unlocked_at');
     }
+
     // ✅ MAIN METHOD - Έλεγχος αν είναι unlocked για user
-public function isUnlockedForUser($userId = null): bool
-{
-    // Αν δεν έχουμε user ID (guest), μόνο default unlocked
-    if (!$userId) {
-        return $this->is_unlocked_by_default;
-    }
+    public function isUnlockedForUser($userId = null): bool
+    {
+        // Αν δεν έχουμε user ID (guest), μόνο default unlocked
+        if (!$userId) {
+            return $this->is_unlocked_by_default;
+        }
 
-    // Αν είναι default unlocked, return true
-    if ($this->is_unlocked_by_default) {
-        return true;
-    }
-
-    // Χρησιμοποίησε το Eloquent relationship αντί για raw query
-    return $this->unlockedByUsers()->where('user_id', $userId)->exists();
-}
+        // Αν είναι default unlocked, return true
+        if ($this->is_unlocked_by_default) {
+            return true;
+        }
+        $hasUnlock = \Illuminate\Support\Facades\DB::table('champion_unlocks')
+        ->where('user_id', $userId)
+        ->where('champion_id', $this->id)
+        ->exists();
     
     \Log::info("Direct DB check - Champion {$this->id}, User {$userId}: " . ($hasUnlock ? 'UNLOCKED' : 'LOCKED'));
     

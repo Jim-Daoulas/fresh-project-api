@@ -14,20 +14,34 @@ class ChampionController extends Controller
     public function index(Request $request): JsonResponse
 {
     try {
-        \Log::info('ChampionController@index called');
+        \Log::info('=== ChampionController@index START ===');
         
         $user = $request->user();
         $userId = $user ? $user->id : null;
+        \Log::info('User ID: ' . ($userId ?? 'null'));
         
-        $champions = Champion::all(); // Απλά αυτό, χωρίς with()
+        \Log::info('About to fetch champions...');
+        $champions = Champion::all();
+        \Log::info('Champions fetched: ' . $champions->count());
         
-        // Προσθέτουμε το is_locked για κάθε champion
+        \Log::info('About to map champions...');
         $champions = $champions->map(function ($champion) use ($userId) {
-            $champion->is_locked = !$champion->isUnlockedForUser($userId);
-            return $champion;
+            \Log::info("Processing champion: {$champion->id} - {$champion->name}");
+            
+            try {
+                $isUnlocked = $champion->isUnlockedForUser($userId);
+                \Log::info("Champion {$champion->id} unlock status: " . ($isUnlocked ? 'unlocked' : 'locked'));
+                
+                $champion->is_locked = !$isUnlocked;
+                return $champion;
+            } catch (\Exception $e) {
+                \Log::error("Error processing champion {$champion->id}: " . $e->getMessage());
+                throw $e;
+            }
         });
+        \Log::info('Champions mapped successfully');
         
-        \Log::info('Champions count: ' . $champions->count());
+        \Log::info('=== ChampionController@index SUCCESS ===');
         
         return response()->json([
             'success' => true,
@@ -35,7 +49,9 @@ class ChampionController extends Controller
             'message' => 'Champions retrieved successfully'
         ]);
     } catch (\Exception $e) {
-        \Log::error('Error in ChampionController@index: ' . $e->getMessage());
+        \Log::error('=== ChampionController@index ERROR ===');
+        \Log::error('Error message: ' . $e->getMessage());
+        \Log::error('Error file: ' . $e->getFile() . ':' . $e->getLine());
         \Log::error('Stack trace: ' . $e->getTraceAsString());
         
         return response()->json([
