@@ -93,19 +93,12 @@ class Champion extends Model implements HasMedia
         // Αν είναι default unlocked, return true
         if ($this->is_unlocked_by_default) {
             return true;
-        }
-        $hasUnlock = \Illuminate\Support\Facades\DB::table('champion_unlocks')
-        ->where('user_id', $userId)
-        ->where('champion_id', $this->id)
-        ->exists();
-    
-    \Log::info("Direct DB check - Champion {$this->id}, User {$userId}: " . ($hasUnlock ? 'UNLOCKED' : 'LOCKED'));
-    
-    return $hasUnlock;
-
+        }   
+      \Log::info("Direct DB check - Champion {$this->id}, User {$userId}: " . ($this ? 'UNLOCKED' : 'LOCKED'));
         // Έλεγξε αν ο user έχει unlock αυτόν τον champion
         
-       // return $this->unlockedByUsers()->where('user_id', $userId)->exists();
+       return $this->unlockedByUsers()->where('user_id', $userId)->exists();
+     
     }
 
     // Accessor για το frontend
