@@ -9,9 +9,9 @@ Route::middleware(['auth:sanctum'])->group(function() {
     // User progression info
     Route::get('/progress', [UnlockController::class, 'getUserProgress']);
     
-    // Unlock actions
-    Route::post('/unlock/champion/{champion}', [UnlockController::class, 'unlockChampion']);
-    Route::post('/unlock/skin/{skin}', [UnlockController::class, 'unlockSkin']);
+    // Unlock actions - ✅ Αφαίρεσα το /unlock prefix
+    Route::post('/champion/{champion}', [UnlockController::class, 'unlockChampion']);
+    Route::post('/skin/{skin}', [UnlockController::class, 'unlockSkin']);
     
     // Get available unlocks
     Route::get('/available-unlocks', [UnlockController::class, 'getAvailableUnlocks']);
@@ -19,5 +19,4 @@ Route::middleware(['auth:sanctum'])->group(function() {
     
     // Add points (για testing - μπορείς να το αφαιρέσεις αργότερα)
     Route::post('/add-points', [UnlockController::class, 'addPoints']);
- 
 });
