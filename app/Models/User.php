@@ -136,13 +136,6 @@ class User extends Authenticatable
             'unlocked_at' => now()
         ]);
 
-        // Δημιουργία UserUnlock record
-        UserUnlock::create([
-            'user_id' => $this->id,
-            'unlockable_type' => Champion::class,
-            'unlockable_id' => $champion->id,
-            'cost_paid' => $champion->unlock_cost
-        ]);
 
         $this->decrement('points', $champion->unlock_cost);
 
