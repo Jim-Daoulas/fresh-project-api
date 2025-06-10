@@ -12,40 +12,39 @@ class ChampionController extends Controller
      * Display a listing of the resource.
      */
     public function index(Request $request): JsonResponse
-{
-    try {
-        \Log::info('ChampionController@index called');
-        
-        $user = $request->user();
-        $userId = $user ? $user->id : null;
-        
-        // Φόρτωσε τους champions με τα relationships
-        $champions = Champion::with('unlockedByUsers')->get();
-        
-        // Προσθέτουμε το is_locked για κάθε champion
-        $champions = $champions->map(function ($champion) use ($userId) {
-            $champion->is_locked = !$champion->isUnlockedForUser($userId);
-            return $champion;
-        });
-        
-        \Log::info('Champions count: ' . $champions->count());
-        
-        return response()->json([
-            'success' => true,
-            'data' => $champions,
-            'message' => 'Champions retrieved successfully'
-        ]);
-    } catch (\Exception $e) {
-        \Log::error('Error in ChampionController@index: ' . $e->getMessage());
-        \Log::error('Stack trace: ' . $e->getTraceAsString());
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to fetch champions',
-            'error' => $e->getMessage()
-        ], 500);
+    {
+        try {
+            \Log::info('ChampionController@index called');
+            
+            $user = $request->user();
+            $userId = $user ? $user->id : null;
+            
+            $champions = Champion::all();
+            
+            // Προσθέτουμε το is_locked για κάθε champion
+            $champions = $champions->map(function ($champion) use ($userId) {
+                $champion->is_locked = !$champion->isUnlockedForUser($userId);
+                return $champion;
+            });
+            
+            \Log::info('Champions count: ' . $champions->count());
+            
+            return response()->json([
+                'success' => true,
+                'data' => $champions,
+                'message' => 'Champions retrieved successfully'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error in ChampionController@index: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch champions',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     /**
      * Display the specified resource.
