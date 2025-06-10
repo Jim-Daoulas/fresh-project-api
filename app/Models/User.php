@@ -136,7 +136,6 @@ class User extends Authenticatable
             'unlocked_at' => now()
         ]);
 
-
         $this->decrement('points', $champion->unlock_cost);
 
         return [
