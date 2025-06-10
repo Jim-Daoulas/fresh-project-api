@@ -63,6 +63,11 @@ class ChampionController extends Controller
         
         // Έλεγξε αν ο champion είναι locked
         $isLocked = !$champion->isUnlockedForUser($userId);
+        \Log::info('Champion unlock check:', [
+    'champion_id' => $champion->id,
+    'user_id' => $userId,
+    'is_locked' => $isLocked
+]);
         
         // ✅ FIX: Επέστρεψε πάντα 200, αλλά με lock info
         if ($isLocked) {
@@ -91,6 +96,7 @@ class ChampionController extends Controller
         
         $champion->is_locked = false;
         
+        
         return response()->json([
             'success' => true,
             'data' => $champion,
@@ -104,7 +110,10 @@ class ChampionController extends Controller
             'message' => 'Failed to fetch champion details',
             'error' => $e->getMessage()
         ], 500);
+        
     }
+    
+    
 }
 
     /**
