@@ -5,20 +5,20 @@ use App\Http\Controllers\ReworkController;
 use App\Http\Controllers\CommentController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [ChampionController::class, 'index']);
-Route::get('/champions', [ChampionController::class, 'index']);
+// ✅ CHANGE: Add auth middleware to index route
+Route::middleware(['auth:sanctum'])->group(function() {
+    Route::get('/', [ChampionController::class, 'index']);
+    Route::get('/champions', [ChampionController::class, 'index']);
+});
+
+// Public routes (no auth needed)
 Route::get('/{champion}', [ChampionController::class, 'show']);
 Route::get('/role/{role}', [ChampionController::class, 'getChampionsByRole']);
 Route::get('/search', [ChampionController::class, 'search']);
 
-// Protected routes - Για τα unlocks και σχόλια (απαιτούν αυθεντικοποίηση)
+// Protected routes - Για τα unlocks και σχόλια
 Route::middleware(['auth:sanctum'])->group(function() {
-    // Unlock champion endpoint
-    //Route::post('/{champion}/unlock', [ChampionController::class, 'unlock']);
-    
-    // Λήψη σχολίων για το rework ενός champion
+    Route::post('/{champion}/unlock', [ChampionController::class, 'unlock']);
     Route::get('/{champion}/rework/comments', [CommentController::class, 'getChampionReworkComments']);
-    
-    // Προσθήκη σχολίου στο rework ενός champion
     Route::post('/{champion}/rework/comments', [CommentController::class, 'addCommentToChampionRework']);
 });
