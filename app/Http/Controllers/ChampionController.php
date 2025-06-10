@@ -195,62 +195,64 @@ class ChampionController extends Controller
         }
     }
     /**
-     * Show champion details for guests (only default unlocked champions)
-     */
-    public function showPublic(Request $request, Champion $champion): JsonResponse
-    {
-        try {
-            \Log::info('=== ChampionController@showPublic DEBUG ===');
-            \Log::info('Champion ID: ' . $champion->id);
-            \Log::info('Champion Name: ' . $champion->name);
-            \Log::info('is_unlocked_by_default: ' . ($champion->is_unlocked_by_default ? 'true' : 'false'));
-
-            // For guests: only show default unlocked champions (IDs 1, 2, 3)
-            $defaultUnlockedIds = [1, 2, 3];
-            $isDefaultUnlocked = in_array($champion->id, $defaultUnlockedIds) || $champion->is_unlocked_by_default;
-
-            if (!$isDefaultUnlocked) {
-                \Log::info('Champion is NOT default unlocked - returning locked data');
-                return response()->json([
-                    'success' => true,
-                    'data' => [
-                        'id' => $champion->id,
-                        'name' => $champion->name,
-                        'title' => $champion->title,
-                        'role' => $champion->role,
-                        'image_url' => $champion->image_url,
-                        'unlock_cost' => $champion->unlock_cost,
-                        'is_locked' => true
-                    ],
-                    'message' => 'This champion is locked. Please log in to unlock it.',
-                    'is_locked' => true
-                ], 200);
-            }
-
-            \Log::info('Champion is default unlocked - loading full data');
-            $champion->load([
-                'abilities',
-                'skins',
-                'rework.abilities',
-                'rework.comments.user'
-            ]);
-
-            $champion->is_locked = false;
-
+ * Show champion details for guests (only default unlocked champions)
+ */
+public function showPublic(Request $request, Champion $champion): JsonResponse
+{
+    try {
+        \Log::info('=== ChampionController@showPublic DEBUG ===');
+        \Log::info('Champion ID: ' . $champion->id);
+        \Log::info('Champion Name: ' . $champion->name);
+        \Log::info('is_unlocked_by_default: ' . ($champion->is_unlocked_by_default ? 'true' : 'false'));
+        
+        // For guests: only show default unlocked champions (IDs 1, 2, 3)
+        $defaultUnlockedIds = [1, 2, 3];
+        $isDefaultUnlocked = in_array($champion->id, $defaultUnlockedIds) || $champion->is_unlocked_by_default;
+        
+        if (!$isDefaultUnlocked) {
+            \Log::info('Champion is NOT default unlocked - returning locked data');
             return response()->json([
                 'success' => true,
-                'data' => $champion,
-                'message' => 'Champion retrieved successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Error in ChampionController@showPublic: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch champion details',
-                'error' => $e->getMessage()
-            ], 500);
+                'data' => [
+                    'id' => $champion->id,
+                    'name' => $champion->name,
+                    'title' => $champion->title,
+                    'role' => $champion->role,
+                    'region' => $champion->region,
+                    'description' => $champion->description,
+                    'image_url' => $champion->image_url,
+                    'unlock_cost' => $champion->unlock_cost,
+                    'is_locked' => true
+                ],
+                'message' => 'This champion is locked. Please log in to unlock it.',
+                'is_locked' => true
+            ], 200);
         }
+        
+        \Log::info('Champion is default unlocked - loading full data');
+        $champion->load([
+            'abilities', 
+            'skins', 
+            'rework.abilities',
+            'rework.comments.user'
+        ]);
+        
+        $champion->is_locked = false;
+        
+        return response()->json([
+            'success' => true,
+            'data' => $champion,
+            'message' => 'Champion retrieved successfully'
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Error in ChampionController@showPublic: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch champion details',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 }
