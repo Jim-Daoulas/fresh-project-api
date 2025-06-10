@@ -78,27 +78,39 @@ class Champion extends Model implements HasMedia
     public function unlockedByUsers(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'champion_unlocks')
-                    ->withTimestamps()
-                    ->withPivot('unlocked_at');
+            ->withTimestamps()
+            ->withPivot('unlocked_at');
     }
 
     // ✅ MAIN METHOD - Έλεγχος αν είναι unlocked για user
     public function isUnlockedForUser($userId = null): bool
     {
+        \Log::info("=== DEBUG isUnlockedForUser ===");
+        \Log::info("Champion ID: {$this->id}, Name: {$this->name}");
+        \Log::info("User ID: " . ($userId ?? 'null'));
+        \Log::info("is_unlocked_by_default: " . ($this->is_unlocked_by_default ? 'true' : 'false'));
+
         // Αν δεν έχουμε user ID (guest), μόνο default unlocked
         if (!$userId) {
+            \Log::info("No user ID - returning default unlock status: " . ($this->is_unlocked_by_default ? 'true' : 'false'));
             return $this->is_unlocked_by_default;
         }
 
         // Αν είναι default unlocked, return true
         if ($this->is_unlocked_by_default) {
+            \Log::info("Champion is unlocked by default - returning true");
             return true;
-        }   
-      \Log::info("Direct DB check - Champion {$this->id}, User {$userId}: " . ($this ? 'UNLOCKED' : 'LOCKED'));
+        }
+
         // Έλεγξε αν ο user έχει unlock αυτόν τον champion
+        $isUnlocked = $this->unlockedByUsers()->where('user_id', $userId)->exists();
+        \Log::info("DB check result: " . ($isUnlocked ? 'UNLOCKED' : 'LOCKED'));
         
-       return $this->unlockedByUsers()->where('user_id', $userId)->exists();
-     
+        // Extra debug - δες τι unlocks έχει ο user
+        $userUnlocks = $this->unlockedByUsers()->where('user_id', $userId)->get();
+        \Log::info("User unlocks for this champion: " . $userUnlocks->count());
+        
+        return $isUnlocked;
     }
 
     // Accessor για το frontend
