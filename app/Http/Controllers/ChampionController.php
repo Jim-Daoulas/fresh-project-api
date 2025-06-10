@@ -148,17 +148,31 @@ class ChampionController extends Controller
         }
     }
 
-    /**
-     * Test endpoint να δούμε αν φτάνει το request
-     */
-    public function test(): JsonResponse
-    {
-        \Log::info('Test endpoint called');
+   public function publicIndex(): JsonResponse
+{
+    try {
+        $champions = Champion::all();
+        
+        // For guests: only show default unlocked champions (IDs 1, 2, 3)
+        $defaultUnlockedIds = [1, 2, 3];
+        
+        $champions = $champions->map(function ($champion) use ($defaultUnlockedIds) {
+            $champion->is_locked = !in_array($champion->id, $defaultUnlockedIds);
+            return $champion;
+        });
         
         return response()->json([
             'success' => true,
-            'message' => 'Test endpoint working!',
-            'timestamp' => now()
+            'data' => $champions,
+            'message' => 'Public champions retrieved successfully'
         ]);
+    } catch (\Exception $e) {
+        \Log::error('Error in ChampionController@publicIndex: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch champions',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 }
