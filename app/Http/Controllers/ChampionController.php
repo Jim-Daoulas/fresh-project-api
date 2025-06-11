@@ -14,27 +14,21 @@ class ChampionController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            \Log::info('=== ChampionController@index DEBUG ===');
-
+            \Log::info('ChampionController@index called');
+            
             $user = $request->user();
             $userId = $user ? $user->id : null;
-
-            \Log::info("User: " . ($user ? $user->email : 'null'));
-            \Log::info("User ID: " . ($userId ?? 'null'));
-
+            
             $champions = Champion::all();
-
-            // Debug για κάθε champion
+            
+            // Προσθέτουμε το is_locked για κάθε champion
             $champions = $champions->map(function ($champion) use ($userId) {
-                $isUnlocked = $champion->isUnlockedForUser($userId);
-                $isLocked = !$isUnlocked;
-
-                \Log::info("Champion {$champion->id} ({$champion->name}): unlocked=" . ($isUnlocked ? 'true' : 'false') . ", locked=" . ($isLocked ? 'true' : 'false'));
-
-                $champion->is_locked = $isLocked;
+                $champion->is_locked = !$champion->isUnlockedForUser($userId);
                 return $champion;
             });
-
+            
+            \Log::info('Champions count: ' . $champions->count());
+            
             return response()->json([
                 'success' => true,
                 'data' => $champions,
@@ -42,6 +36,8 @@ class ChampionController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in ChampionController@index: ' . $e->getMessage());
+            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch champions',
@@ -57,46 +53,41 @@ class ChampionController extends Controller
     {
         try {
             \Log::info('ChampionController@show called for champion ID: ' . $champion->id);
-
+            
             $user = $request->user();
             $userId = $user ? $user->id : null;
-
-            // Έλεγξε αν ο champion είναι locked
+            
+            // ✅ FIXED: Έλεγξε αν ο champion είναι locked
             $isLocked = !$champion->isUnlockedForUser($userId);
-            \Log::info('Champion unlock check:', [
-                'champion_id' => $champion->id,
-                'user_id' => $userId,
-                'is_locked' => $isLocked
-            ]);
-
-            // ✅ FIX: Επέστρεψε πάντα 200, αλλά με lock info
-            if ($isLocked) {
+            
+            // ✅ GUEST USERS μπορούν να δουν default unlocked champions
+            if ($isLocked && !$champion->is_unlocked_by_default) {
                 return response()->json([
-                    'success' => true, // ✅ Changed to true
-                    'data' => [
-                        'id' => $champion->id,
-                        'name' => $champion->name,
-                        'title' => $champion->title,
-                        'role' => $champion->role,
-                        'image_url' => $champion->image_url,
-                        'unlock_cost' => $champion->unlock_cost,
-                        'is_locked' => true
-                    ],
+                    'success' => false,
                     'message' => 'This champion is locked. Please unlock it first.',
-                    'is_locked' => true
-                ], 200); // ✅ Changed to 200
+                    'is_locked' => true,
+                    'requires_login' => !$userId // Hint για frontend
+                ], 403);
             }
-
+            
+            // Load relationships
             $champion->load([
-                'abilities',
-                'skins',
+                'abilities', 
+                'skins', 
                 'rework.abilities',
                 'rework.comments.user'
             ]);
-
-            $champion->is_locked = false;
-
-
+            
+            // ✅ Add unlock status for skins
+            if ($champion->skins) {
+                $champion->skins = $champion->skins->map(function ($skin) use ($userId) {
+                    $skin->is_locked = !$skin->isUnlockedForUser($userId);
+                    return $skin;
+                });
+            }
+            
+            $champion->is_locked = $isLocked;
+            
             return response()->json([
                 'success' => true,
                 'data' => $champion,
@@ -104,16 +95,13 @@ class ChampionController extends Controller
             ]);
         } catch (\Exception $e) {
             \Log::error('Error in ChampionController@show: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch champion details',
                 'error' => $e->getMessage()
             ], 500);
-
         }
-
-
     }
 
     /**
@@ -123,7 +111,7 @@ class ChampionController extends Controller
     {
         try {
             $user = $request->user();
-
+            
             if (!$user) {
                 return response()->json([
                     'success' => false,
@@ -131,34 +119,40 @@ class ChampionController extends Controller
                 ], 401);
             }
 
-            // Χρησιμοποίησε την unlockChampion μέθοδο του User model
-            $result = $user->unlockChampion($champion);
-
-            // Αν δεν πέτυχε το unlock
-            if (!$result['success']) {
+            // Έλεγξε αν ήδη είναι unlocked
+            if ($champion->isUnlockedForUser($user->id)) {
                 return response()->json([
                     'success' => false,
-                    'message' => $result['message']
+                    'message' => 'Champion is already unlocked'
                 ], 400);
             }
 
-            // Επιτυχημένο unlock
-            return response()->json([
-                'success' => true,
-                'message' => $result['message'],
-                'data' => [
-                    'champion' => [
-                        'id' => $champion->id,
-                        'name' => $champion->name,
-                        'is_locked' => false
-                    ],
-                    'user_points' => $user->fresh()->points
-                ]
-            ]);
-
+            // Unlock τον champion
+            $unlocked = $user->unlockChampion($champion->id);
+            
+            if ($unlocked) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Champion unlocked successfully!',
+                    'data' => [
+                        'champion' => [
+                            'id' => $champion->id,
+                            'name' => $champion->name,
+                            'is_locked' => false
+                        ],
+                        'user_points' => $user->fresh()->points
+                    ]
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to unlock champion'
+                ], 500);
+            }
+            
         } catch (\Exception $e) {
             \Log::error('Error in ChampionController@unlock: ' . $e->getMessage());
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to unlock champion',
@@ -167,92 +161,17 @@ class ChampionController extends Controller
         }
     }
 
-    public function publicIndex(): JsonResponse
-    {
-        try {
-            $champions = Champion::all();
-
-            // For guests: only show default unlocked champions (IDs 1, 2, 3)
-            $defaultUnlockedIds = [1, 2, 3];
-
-            $champions = $champions->map(function ($champion) use ($defaultUnlockedIds) {
-                $champion->is_locked = !in_array($champion->id, $defaultUnlockedIds);
-                return $champion;
-            });
-
-            return response()->json([
-                'success' => true,
-                'data' => $champions,
-                'message' => 'Public champions retrieved successfully'
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error in ChampionController@publicIndex: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch champions',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
     /**
- * Show champion details for guests (only default unlocked champions)
- */
-public function showPublic(Request $request, Champion $champion): JsonResponse
-{
-    try {
-        \Log::info('=== ChampionController@showPublic DEBUG ===');
-        \Log::info('Champion ID: ' . $champion->id);
-        \Log::info('Champion Name: ' . $champion->name);
-        \Log::info('is_unlocked_by_default: ' . ($champion->is_unlocked_by_default ? 'true' : 'false'));
-        
-        // For guests: only show default unlocked champions (IDs 1, 2, 3)
-        $defaultUnlockedIds = [1, 2, 3];
-        $isDefaultUnlocked = in_array($champion->id, $defaultUnlockedIds) || $champion->is_unlocked_by_default;
-        
-        if (!$isDefaultUnlocked) {
-            \Log::info('Champion is NOT default unlocked - returning locked data');
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'id' => $champion->id,
-                    'name' => $champion->name,
-                    'title' => $champion->title,
-                    'role' => $champion->role,
-                    'region' => $champion->region,
-                    'description' => $champion->description,
-                    'image_url' => $champion->image_url,
-                    'unlock_cost' => $champion->unlock_cost,
-                    'is_locked' => true
-                ],
-                'message' => 'This champion is locked. Please log in to unlock it.',
-                'is_locked' => true
-            ], 200);
-        }
-        
-        \Log::info('Champion is default unlocked - loading full data');
-        $champion->load([
-            'abilities', 
-            'skins', 
-            'rework.abilities',
-            'rework.comments.user'
-        ]);
-        
-        $champion->is_locked = false;
+     * Test endpoint να δούμε αν φτάνει το request
+     */
+    public function test(): JsonResponse
+    {
+        \Log::info('Test endpoint called');
         
         return response()->json([
             'success' => true,
-            'data' => $champion,
-            'message' => 'Champion retrieved successfully'
+            'message' => 'Test endpoint working!',
+            'timestamp' => now()
         ]);
-        
-    } catch (\Exception $e) {
-        \Log::error('Error in ChampionController@showPublic: ' . $e->getMessage());
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to fetch champion details',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
 }
