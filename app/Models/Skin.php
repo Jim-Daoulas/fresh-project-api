@@ -47,13 +47,15 @@ class Skin extends Model implements HasMedia
 
     // Accessor για image_url από media
     public function getImageUrlAttribute(): ?string
-    {
-        if ($this->hasMedia('avatars')) {
-            return $this->getFirstMediaUrl('avatars');
-        }
-        
-        return $this->attributes['image_url'] ?? null;
+{
+    // Αν έχουμε media, επιστρέψτε το media URL
+    if ($this->hasMedia('skins')) {
+        return $this->getFirstMediaUrl('skins');
     }
+    
+    // Αλλιώς επιστρέψτε την τιμή από τη βάση
+    return $this->getOriginal('image_url');
+}
 
     // Relationships
     public function champion(): BelongsTo
