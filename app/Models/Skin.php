@@ -32,7 +32,7 @@ class Skin extends Model implements HasMedia
     // Media Library Configuration (ίδια με Champion)
     public function registerMediaCollections(): void
     {
-        $this->addMediaCollection('avatars')
+        $this->addMediaCollection('skins')
             ->singleFile()
             ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
     }
