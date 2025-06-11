@@ -194,6 +194,19 @@ class User extends Authenticatable
             'message' => "Successfully unlocked {$skin->name}!"
         ];
     }
+    public function getUnlockedSkins()
+{
+    return $this->unlocks()
+        ->where('unlockable_type', Skin::class)
+        ->with(['unlockable.champion']) // Load skin με champion data
+        ->get()
+        ->map(function($unlock) {
+            $skin = $unlock->unlockable;
+            $skin->unlocked_at = $unlock->created_at;
+            $skin->cost_paid = $unlock->cost_paid;
+            return $skin;
+        });
+}
 
     // ✅ CHECK METHODS
     public function hasUnlockedChampion($championId): bool

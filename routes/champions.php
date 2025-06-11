@@ -8,8 +8,6 @@ use Illuminate\Support\Facades\Route;
 // ✅ PUBLIC: For guests - shows default unlocked champions
 Route::get('/', [ChampionController::class, 'publicIndex']);
 Route::get('/public', [ChampionController::class, 'publicIndex']);
-
-// ✅ PUBLIC: Champion details for guests (only default unlocked)
 Route::get('/public/{champion}', [ChampionController::class, 'showPublic']);
 
 // Other public routes
