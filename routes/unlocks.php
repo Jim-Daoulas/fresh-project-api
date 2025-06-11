@@ -17,6 +17,7 @@ Route::middleware(['auth:sanctum'])->group(function() {
     Route::get('/available-unlocks', [UnlockController::class, 'getAvailableUnlocks']);
     Route::get('/locked-items', [UnlockController::class, 'getLockedItems']);
     
+    
     // Add points (για testing - μπορείς να το αφαιρέσεις αργότερα)
     Route::post('/add-points', [UnlockController::class, 'addPoints']);
 });
