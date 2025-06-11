@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -28,16 +28,18 @@ class Skin extends Model implements HasMedia
     ];
 
     // Append the media URL to the JSON response
-    protected $appends = ['image_url', 'is_unlocked_by_default'];
+    protected $appends = ['image_url'];
 
     public function champion(): BelongsTo
     {
         return $this->belongsTo(Champion::class);
     }
 
-    public function unlocks(): MorphMany
+    public function unlockedByUsers(): BelongsToMany
     {
-        return $this->morphMany(UserUnlock::class, 'unlockable');
+        return $this->belongsToMany(User::class, 'skin_unlocks')
+                    ->withTimestamps()
+                    ->withPivot('unlocked_at');
     }
 
     // Override the image_url attribute to return media URL
@@ -50,7 +52,24 @@ class Skin extends Model implements HasMedia
         return $mediaUrl ?: $this->attributes['image_url'] ?? null;
     }
 
-    // Helper methods για unlock system
+    // ✅ MAIN METHOD - Έλεγχος αν είναι unlocked για user (same as Champion)
+    public function isUnlockedForUser($userId = null): bool
+    {
+        // Αν δεν έχουμε user ID (guest), μόνο default unlocked
+        if (!$userId) {
+            return $this->is_unlocked_by_default;
+        }
+
+        // Αν είναι default unlocked, return true
+        if ($this->is_unlocked_by_default) {
+            return true;
+        }
+
+        // Έλεγξε αν ο user έχει unlock αυτό το skin
+        return $this->unlockedByUsers()->where('user_id', $userId)->exists();
+    }
+
+    // Helper methods (same pattern as Champion)
     public function isUnlockedByDefault(): bool
     {
         return $this->is_unlocked_by_default;
@@ -58,39 +77,70 @@ class Skin extends Model implements HasMedia
 
     public function isUnlockedBy(User $user): bool
     {
-        return $this->is_unlocked_by_default || $user->hasUnlocked($this);
+        return $this->isUnlockedForUser($user->id);
     }
 
     public function canBeUnlockedBy(User $user): bool
     {
         return !$this->is_unlocked_by_default && 
-               !$user->hasUnlocked($this) && 
-               $user->points >= $this->unlock_cost;
+               !$this->isUnlockedForUser($user->id) && 
+               $user->points >= $this->unlock_cost &&
+               $this->champion->isUnlockedForUser($user->id); // Extra check για champion
     }
 
-    // Scope για unlocked skins
-    public function scopeUnlockedByUser($query, User $user)
+    // Scopes (same pattern as Champion)
+    public function scopeUnlockedForUser($query, $userId = null)
     {
-        $unlockedIds = $user->getUnlockedSkinIds();
-        
-        return $query->where(function($q) use ($unlockedIds) {
+        if (!$userId) {
+            return $query->where('is_unlocked_by_default', true);
+        }
+
+        return $query->where(function($q) use ($userId) {
             $q->where('is_unlocked_by_default', true)
-              ->orWhereIn('id', $unlockedIds);
+              ->orWhereHas('unlockedByUsers', function($subQuery) use ($userId) {
+                  $subQuery->where('user_id', $userId);
+              });
         });
     }
 
-    // Scope για locked skins
-    public function scopeLockedForUser($query, User $user)
+    public function scopeLockedForUser($query, $userId = null)
     {
+        if (!$userId) {
+            return $query->where('is_unlocked_by_default', false);
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            return $query->where('is_unlocked_by_default', false);
+        }
+
         $unlockedIds = $user->getUnlockedSkinIds();
         
         return $query->where('is_unlocked_by_default', false)
                     ->whereNotIn('id', $unlockedIds);
     }
 
-    // Accessor για API
-    public function getIsUnlockedByDefaultAttribute(): bool
+    public function scopeAvailableForUser($query, $userId = null)
     {
-        return $this->attributes['is_unlocked_by_default'] ?? false;
+        // Skins που ο user μπορεί να δει (από unlocked champions)
+        if (!$userId) {
+            return $query->whereHas('champion', function($q) {
+                $q->where('is_unlocked_by_default', true);
+            });
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            return $query->whereHas('champion', function($q) {
+                $q->where('is_unlocked_by_default', true);
+            });
+        }
+
+        $unlockedChampionIds = array_merge(
+            Champion::where('is_unlocked_by_default', true)->pluck('id')->toArray(),
+            $user->getUnlockedChampionIds()
+        );
+        
+        return $query->whereIn('champion_id', $unlockedChampionIds);
     }
 }

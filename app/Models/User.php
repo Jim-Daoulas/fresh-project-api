@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -51,14 +50,10 @@ class User extends Authenticatable
         return false;
     }
 
+    // ✅ COMMENT POINTS SYSTEM
     public function addCommentPoints(): void
     {
         $this->increment('points', 10);
-    }
-
-    public function addPoints(int $amount): void
-    {
-        $this->increment('points', $amount);
     }
 
     public function roles(): BelongsToMany
@@ -66,12 +61,7 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class);
     }
 
-    // ✅ UNLOCK RELATIONSHIPS
-    public function unlocks(): HasMany
-    {
-        return $this->hasMany(UserUnlock::class);
-    }
-
+    // ✅ CHAMPION UNLOCK SYSTEM (existing)
     public function unlockedChampions(): BelongsToMany
     {
         return $this->belongsToMany(Champion::class, 'champion_unlocks')
@@ -79,170 +69,94 @@ class User extends Authenticatable
             ->withPivot('unlocked_at');
     }
 
-    // ✅ GENERIC UNLOCK METHOD
-    public function unlock($item): array
+    public function unlockChampion($championId): bool
     {
-        // Έλεγχος τι είδους item είναι
-        if ($item instanceof Champion) {
-            return $this->unlockChampion($item);
-        } elseif ($item instanceof Skin) {
-            return $this->unlockSkin($item);
-        }
-
-        return [
-            'success' => false,
-            'message' => 'Invalid item type'
-        ];
-    }
-
-    // ✅ CHAMPION UNLOCK SYSTEM
-    public function unlockChampion($champion): array
-    {
-        // Champion instance ή ID
-        if (is_numeric($champion)) {
-            $champion = Champion::find($champion);
-        }
-
+        $champion = Champion::find($championId);
+        
         if (!$champion) {
-            return [
-                'success' => false,
-                'message' => 'Champion not found'
-            ];
+            return false;
         }
 
-        if ($this->hasUnlockedChampion($champion->id)) {
-            return [
-                'success' => false,
-                'message' => 'Champion already unlocked'
-            ];
+        if ($this->hasUnlockedChampion($championId)) {
+            return false;
         }
 
         if ($champion->is_unlocked_by_default) {
-            return [
-                'success' => false,
-                'message' => 'Champion is already available by default'
-            ];
+            return false;
         }
 
         if ($this->points < $champion->unlock_cost) {
-            return [
-                'success' => false,
-                'message' => "Not enough points. Required: {$champion->unlock_cost}, You have: {$this->points}"
-            ];
+            return false;
         }
 
-        // Unlock τον champion
-        $this->unlockedChampions()->attach($champion->id, [
+        $this->unlockedChampions()->attach($championId, [
             'unlocked_at' => now()
         ]);
 
         $this->decrement('points', $champion->unlock_cost);
 
-        return [
-            'success' => true,
-            'message' => "Successfully unlocked {$champion->name}!"
-        ];
+        return true;
     }
 
-    // ✅ SKIN UNLOCK SYSTEM
-    public function unlockSkin($skin): array
-    {
-        if (is_numeric($skin)) {
-            $skin = Skin::find($skin);
-        }
-
-        if (!$skin) {
-            return [
-                'success' => false,
-                'message' => 'Skin not found'
-            ];
-        }
-
-        if ($this->hasUnlockedSkin($skin->id)) {
-            return [
-                'success' => false,
-                'message' => 'Skin already unlocked'
-            ];
-        }
-
-        if ($skin->is_unlocked_by_default) {
-            return [
-                'success' => false,
-                'message' => 'Skin is already available by default'
-            ];
-        }
-
-        if ($this->points < $skin->unlock_cost) {
-            return [
-                'success' => false,
-                'message' => "Not enough points. Required: {$skin->unlock_cost}, You have: {$this->points}"
-            ];
-        }
-
-        // Unlock το skin
-        UserUnlock::create([
-            'user_id' => $this->id,
-            'unlockable_type' => Skin::class,
-            'unlockable_id' => $skin->id,
-            'cost_paid' => $skin->unlock_cost
-        ]);
-
-        $this->decrement('points', $skin->unlock_cost);
-
-        return [
-            'success' => true,
-            'message' => "Successfully unlocked {$skin->name}!"
-        ];
-    }
-    public function getUnlockedSkins()
-{
-    return $this->unlocks()
-        ->where('unlockable_type', Skin::class)
-        ->with(['unlockable.champion']) // Load skin με champion data
-        ->get()
-        ->map(function($unlock) {
-            $skin = $unlock->unlockable;
-            $skin->unlocked_at = $unlock->created_at;
-            $skin->cost_paid = $unlock->cost_paid;
-            return $skin;
-        });
-}
-
-    // ✅ CHECK METHODS
     public function hasUnlockedChampion($championId): bool
     {
         return $this->unlockedChampions()->where('champion_id', $championId)->exists();
     }
 
-    public function hasUnlockedSkin($skinId): bool
-    {
-        return $this->unlocks()
-            ->where('unlockable_type', Skin::class)
-            ->where('unlockable_id', $skinId)
-            ->exists();
-    }
-
-    public function hasUnlocked($item): bool
-    {
-        if ($item instanceof Champion) {
-            return $this->hasUnlockedChampion($item->id);
-        } elseif ($item instanceof Skin) {
-            return $this->hasUnlockedSkin($item->id);
-        }
-        return false;
-    }
-
-    // ✅ GET UNLOCKED IDS
     public function getUnlockedChampionIds(): array
     {
         return $this->unlockedChampions()->pluck('champion_id')->toArray();
     }
 
+    // ✅ SKIN UNLOCK SYSTEM (same logic as champions)
+    public function unlockedSkins(): BelongsToMany
+    {
+        return $this->belongsToMany(Skin::class, 'skin_unlocks')
+            ->withTimestamps()
+            ->withPivot('unlocked_at');
+    }
+
+    public function unlockSkin($skinId): bool
+    {
+        $skin = Skin::find($skinId);
+        
+        if (!$skin) {
+            return false;
+        }
+
+        if ($this->hasUnlockedSkin($skinId)) {
+            return false;
+        }
+
+        if ($skin->is_unlocked_by_default) {
+            return false;
+        }
+
+        if ($this->points < $skin->unlock_cost) {
+            return false;
+        }
+
+        // Check if user has unlocked the champion first
+        if (!$skin->champion->isUnlockedForUser($this->id)) {
+            return false;
+        }
+
+        $this->unlockedSkins()->attach($skinId, [
+            'unlocked_at' => now()
+        ]);
+
+        $this->decrement('points', $skin->unlock_cost);
+
+        return true;
+    }
+
+    public function hasUnlockedSkin($skinId): bool
+    {
+        return $this->unlockedSkins()->where('skin_id', $skinId)->exists();
+    }
+
     public function getUnlockedSkinIds(): array
     {
-        return $this->unlocks()
-            ->where('unlockable_type', Skin::class)
-            ->pluck('unlockable_id')
-            ->toArray();
+        return $this->unlockedSkins()->pluck('skin_id')->toArray();
     }
 }

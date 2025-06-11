@@ -1,18 +1,30 @@
 <?php
 
+use App\Http\Controllers\ChampionController;
+use App\Http\Controllers\ReworkController;
+use App\Http\Controllers\CommentController;
 use App\Http\Controllers\SkinController;
 use Illuminate\Support\Facades\Route;
 
-// ✅ PUBLIC: For guests - shows only default unlocked skins
-Route::get('/champion/{championId}/public', [SkinController::class, 'getPublicSkinsForChampion']);
+Route::get('/', [ChampionController::class, 'index']);
+Route::get('/champions', [ChampionController::class, 'index']);
+Route::get('/{champion}', [ChampionController::class, 'show']);
 
-// Other public routes if needed
-Route::get('/search', [SkinController::class, 'search']); // για μελλοντική χρήση
+// Skin routes (public)
+Route::get('/{champion}/skins', [SkinController::class, 'getChampionSkins']);
+Route::get('/skins/{skin}', [SkinController::class, 'show']);
 
-// ✅ PRIVATE: For authenticated users
+// Protected routes - Για τα unlocks και σχόλια (απαιτούν αυθεντικοποίηση)
 Route::middleware(['auth:sanctum'])->group(function() {
-    Route::get('/champion/{championId}', [SkinController::class, 'getSkinsForChampion']);
-    Route::post('/{skinId}/unlock', [SkinController::class, 'unlock']);
-    Route::get('/my-skins', [SkinController::class, 'getUserUnlockedSkins']);
-    Route::get('/unlocked', [SkinController::class, 'getUserUnlockedSkins']); // alias
+    // Unlock champion endpoint
+    Route::post('/{champion}/unlock', [ChampionController::class, 'unlock']);
+    
+    // Skin unlock endpoint
+    Route::post('/skins/{skin}/unlock', [SkinController::class, 'unlock']);
+    
+    // Λήψη σχολίων για το rework ενός champion
+    Route::get('/{champion}/rework/comments', [CommentController::class, 'getChampionReworkComments']);
+    
+    // Προσθήκη σχολίου στο rework ενός champion
+    Route::post('/{champion}/rework/comments', [CommentController::class, 'addCommentToChampionRework']);
 });
