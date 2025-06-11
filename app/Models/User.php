@@ -149,7 +149,10 @@ class User extends Authenticatable
 
         return true;
     }
-
+public function getUnlockedSkins()
+{
+    return $this->unlockedSkins()->with('champion')->get();
+}
     public function hasUnlockedSkin($skinId): bool
     {
         return $this->unlockedSkins()->where('skin_id', $skinId)->exists();
