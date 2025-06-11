@@ -5,25 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\Skin;
 use App\Models\Champion;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\JsonResponse;
 
 class SkinController extends Controller
 {
     /**
      * Get all skins for a specific champion (for authenticated users)
      */
-    public function getSkinsForChampion($championId)
+    public function getSkinsForChampion(Request $request, $championId): JsonResponse
     {
         try {
-            $user = Auth::guard('sanctum')->user();
+            \Log::info('=== SkinController@getSkinsForChampion DEBUG ===');
 
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Authentication required'
-                ], 401);
-            }
+            $user = $request->user();
+            $userId = $user ? $user->id : null;
+
+            \Log::info("User: " . ($user ? $user->email : 'null'));
+            \Log::info("Champion ID: " . $championId);
 
             // Get champion to verify it exists
             $champion = Champion::findOrFail($championId);
@@ -34,26 +32,13 @@ class SkinController extends Controller
                 ->get();
 
             // Add unlock status for each skin
-            $skins = $skins->map(function ($skin, $index) use ($user) {
-                // First skin is always unlocked by default
-                $isFirstSkin = ($index === 0);
-                
-                $skin->is_unlocked_by_default = $isFirstSkin;
-                
-                // Check if skin is locked
-                if ($isFirstSkin) {
-                    $skin->is_locked = false;
-                } else {
-                    $skin->is_locked = !$user->hasUnlockedSkin($skin->id);
-                }
+            $skins = $skins->map(function ($skin, $index) use ($userId) {
+                $isUnlocked = $skin->isUnlockedForUser($userId);
+                $isLocked = !$isUnlocked;
 
-                // Add unlock cost (required by frontend)
-                $skin->unlock_cost = $skin->unlock_cost ?? 50;
+                \Log::info("Skin {$skin->id} ({$skin->name}): unlocked=" . ($isUnlocked ? 'true' : 'false') . ", locked=" . ($isLocked ? 'true' : 'false'));
 
-                // Add unlock status info
-                $skin->can_unlock = !$isFirstSkin && $skin->is_locked && ($user->points >= $skin->unlock_cost);
-                $skin->user_points = $user->points;
-
+                $skin->is_locked = $isLocked;
                 return $skin;
             });
 
@@ -65,12 +50,10 @@ class SkinController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching skins for champion: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-
+            \Log::error('Error in SkinController@getSkinsForChampion: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Error fetching skins',
+                'message' => 'Failed to fetch skins',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -79,26 +62,18 @@ class SkinController extends Controller
     /**
      * Get skins for guests (only default unlocked skins)
      */
-    public function getPublicSkinsForChampion($championId)
+    public function getPublicSkinsForChampion(Request $request, $championId): JsonResponse
     {
         try {
             $champion = Champion::findOrFail($championId);
 
-            // Get all skins, but mark only first as unlocked for guests
             $skins = Skin::where('champion_id', $championId)
                 ->orderBy('id', 'asc')
                 ->get();
 
+            // For guests: only first skin is unlocked by default
             $skins = $skins->map(function ($skin, $index) {
-                // Only first skin is unlocked for guests
-                $isFirstSkin = ($index === 0);
-                
-                $skin->is_locked = !$isFirstSkin;
-                $skin->is_unlocked_by_default = $isFirstSkin;
-                $skin->can_unlock = false;
-                $skin->user_points = 0;
-                $skin->unlock_cost = $skin->unlock_cost ?? 50;
-
+                $skin->is_locked = ($index !== 0); // First skin (index 0) is unlocked
                 return $skin;
             });
 
@@ -110,11 +85,122 @@ class SkinController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching public skins: ' . $e->getMessage());
+            \Log::error('Error in SkinController@getPublicSkinsForChampion: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch skins',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Display the specified skin (for authenticated users)
+     */
+    public function show(Request $request, Skin $skin): JsonResponse
+    {
+        try {
+            \Log::info('SkinController@show called for skin ID: ' . $skin->id);
+
+            $user = $request->user();
+            $userId = $user ? $user->id : null;
+
+            // Check if the skin is locked
+            $isLocked = !$skin->isUnlockedForUser($userId);
+            \Log::info('Skin unlock check:', [
+                'skin_id' => $skin->id,
+                'user_id' => $userId,
+                'is_locked' => $isLocked
+            ]);
+
+            // ✅ Always return 200, but with lock info
+            if ($isLocked) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'id' => $skin->id,
+                        'name' => $skin->name,
+                        'champion_id' => $skin->champion_id,
+                        'image_url' => $skin->image_url,
+                        'unlock_cost' => $skin->unlock_cost,
+                        'is_locked' => true
+                    ],
+                    'message' => 'This skin is locked. Please unlock it first.',
+                    'is_locked' => true
+                ], 200);
+            }
+
+            $skin->load('champion');
+            $skin->is_locked = false;
+
+            return response()->json([
+                'success' => true,
+                'data' => $skin,
+                'message' => 'Skin retrieved successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in SkinController@show: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error fetching skins'
+                'message' => 'Failed to fetch skin details',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Show skin details for guests (only default unlocked skins)
+     */
+    public function showPublic(Request $request, Skin $skin): JsonResponse
+    {
+        try {
+            \Log::info('=== SkinController@showPublic DEBUG ===');
+            \Log::info('Skin ID: ' . $skin->id);
+            \Log::info('Skin Name: ' . $skin->name);
+
+            // For guests: only first skin of each champion is unlocked
+            $firstSkin = Skin::where('champion_id', $skin->champion_id)
+                ->orderBy('id', 'asc')
+                ->first();
+
+            $isDefaultUnlocked = ($skin->id === $firstSkin->id);
+
+            if (!$isDefaultUnlocked) {
+                \Log::info('Skin is NOT default unlocked - returning locked data');
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'id' => $skin->id,
+                        'name' => $skin->name,
+                        'champion_id' => $skin->champion_id,
+                        'image_url' => $skin->image_url,
+                        'unlock_cost' => $skin->unlock_cost,
+                        'is_locked' => true
+                    ],
+                    'message' => 'This skin is locked. Please log in to unlock it.',
+                    'is_locked' => true
+                ], 200);
+            }
+
+            \Log::info('Skin is default unlocked - loading full data');
+            $skin->load('champion');
+            $skin->is_locked = false;
+
+            return response()->json([
+                'success' => true,
+                'data' => $skin,
+                'message' => 'Skin retrieved successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in SkinController@showPublic: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch skin details',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -122,81 +208,49 @@ class SkinController extends Controller
     /**
      * Unlock a skin for the authenticated user
      */
-    public function unlock(Request $request, $skinId)
+    public function unlock(Request $request, Skin $skin): JsonResponse
     {
         try {
-            $user = Auth::guard('sanctum')->user();
+            $user = $request->user();
 
             if (!$user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authentication required'
+                    'message' => 'Authentication required to unlock skins'
                 ], 401);
             }
 
-            $skin = Skin::findOrFail($skinId);
+            // Use the unlockSkin method from User model
+            $result = $user->unlockSkin($skin);
 
-            // Check if already unlocked
-            if ($user->hasUnlockedSkin($skin->id)) {
+            // If unlock failed
+            if (!$result['success']) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Skin is already unlocked'
+                    'message' => $result['message']
                 ], 400);
             }
 
-            // Check if it's the first skin (default unlocked)
-            $firstSkin = Skin::where('champion_id', $skin->champion_id)
-                ->orderBy('id', 'asc')
-                ->first();
-
-            if ($skin->id === $firstSkin->id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This skin is already available by default'
-                ], 400);
-            }
-
-            // Check if user has enough points
-            if ($user->points < $skin->unlock_cost) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Not enough points to unlock this skin',
-                    'required_points' => $skin->unlock_cost,
-                    'user_points' => $user->points
-                ], 400);
-            }
-
-            // ✅ ΔΙΟΡΘΩΣΗ: Χρησιμοποιούμε τη σωστή μέθοδο
-            $success = $user->unlockSkin($skin->id);
-
-            if ($success) {
-                // Refresh user data
-                $user = $user->fresh();
-
-                return response()->json([
-                    'success' => true,
-                    'message' => "Skin '{$skin->name}' unlocked successfully!",
-                    'remaining_points' => $user->points,
-                    'data' => [
-                        'skin_id' => $skin->id,
-                        'skin_name' => $skin->name,
-                        'user_points' => $user->points
-                    ]
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to unlock skin. You may need to unlock the champion first.'
-                ], 400);
-            }
+            // Successful unlock
+            return response()->json([
+                'success' => true,
+                'message' => $result['message'],
+                'data' => [
+                    'skin' => [
+                        'id' => $skin->id,
+                        'name' => $skin->name,
+                        'is_locked' => false
+                    ],
+                    'user_points' => $user->fresh()->points
+                ]
+            ]);
 
         } catch (\Exception $e) {
-            Log::error('Error unlocking skin: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            \Log::error('Error in SkinController@unlock: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error unlocking skin',
+                'message' => 'Failed to unlock skin',
                 'error' => $e->getMessage()
             ], 500);
         }
@@ -205,10 +259,10 @@ class SkinController extends Controller
     /**
      * Get all unlocked skins for the authenticated user
      */
-    public function getUserUnlockedSkins()
+    public function getUserUnlockedSkins(Request $request): JsonResponse
     {
         try {
-            $user = Auth::guard('sanctum')->user();
+            $user = $request->user();
 
             if (!$user) {
                 return response()->json([
@@ -217,7 +271,7 @@ class SkinController extends Controller
                 ], 401);
             }
 
-            $unlockedSkins = $user->getUnlockedSkins();
+            $unlockedSkins = $user->unlockedSkins()->with('champion')->get();
 
             return response()->json([
                 'success' => true,
@@ -227,11 +281,12 @@ class SkinController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching user unlocked skins: ' . $e->getMessage());
+            \Log::error('Error in SkinController@getUserUnlockedSkins: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error fetching unlocked skins'
+                'message' => 'Error fetching unlocked skins',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -239,7 +294,7 @@ class SkinController extends Controller
     /**
      * Display a listing of all skins (admin/debug purpose)
      */
-    public function index()
+    public function index(Request $request): JsonResponse
     {
         try {
             $skins = Skin::with('champion')->orderBy('champion_id')->orderBy('id')->get();
@@ -252,176 +307,11 @@ class SkinController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching all skins: ' . $e->getMessage());
+            \Log::error('Error in SkinController@index: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error fetching skins'
-            ], 500);
-        }
-    }
-
-    /**
-     * Display the specified skin
-     */
-    public function show($id)
-    {
-        try {
-            $user = Auth::guard('sanctum')->user();
-            $skin = Skin::with('champion')->findOrFail($id);
-
-            // Add unlock status if user is authenticated
-            if ($user) {
-                // Check if it's the first skin (default unlocked)
-                $firstSkin = Skin::where('champion_id', $skin->champion_id)
-                    ->orderBy('id', 'asc')
-                    ->first();
-                
-                $isFirstSkin = ($skin->id === $firstSkin->id);
-                
-                if ($isFirstSkin) {
-                    $skin->is_locked = false;
-                    $skin->is_unlocked_by_default = true;
-                } else {
-                    $skin->is_locked = !$user->hasUnlockedSkin($skin->id);
-                    $skin->is_unlocked_by_default = false;
-                }
-                
-                $skin->can_unlock = !$isFirstSkin && $skin->is_locked && ($user->points >= $skin->unlock_cost);
-                $skin->user_points = $user->points;
-            } else {
-                // For guests, only first skin is unlocked
-                $firstSkin = Skin::where('champion_id', $skin->champion_id)
-                    ->orderBy('id', 'asc')
-                    ->first();
-                
-                $isFirstSkin = ($skin->id === $firstSkin->id);
-                
-                $skin->is_locked = !$isFirstSkin;
-                $skin->is_unlocked_by_default = $isFirstSkin;
-                $skin->can_unlock = false;
-                $skin->user_points = 0;
-            }
-
-            // Ensure unlock_cost is set
-            $skin->unlock_cost = $skin->unlock_cost ?? 50;
-
-            return response()->json([
-                'success' => true,
-                'data' => $skin,
-                'message' => 'Skin retrieved successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error fetching skin: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error fetching skin'
-            ], 500);
-        }
-    }
-
-    /**
-     * Store a newly created skin in storage (admin only)
-     */
-    public function store(Request $request)
-    {
-        try {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'champion_id' => 'required|exists:champions,id',
-                'image_url' => 'required|url',
-                'unlock_cost' => 'nullable|integer|min:0',
-                'description' => 'nullable|string'
-            ]);
-
-            $skin = Skin::create([
-                'name' => $request->name,
-                'champion_id' => $request->champion_id,
-                'image_url' => $request->image_url,
-                'unlock_cost' => $request->unlock_cost ?? 50,
-                'description' => $request->description
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'data' => $skin->load('champion'),
-                'message' => 'Skin created successfully'
-            ], 201);
-
-        } catch (\Exception $e) {
-            Log::error('Error creating skin: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error creating skin',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Update the specified skin in storage (admin only)
-     */
-    public function update(Request $request, $id)
-    {
-        try {
-            $skin = Skin::findOrFail($id);
-
-            $request->validate([
-                'name' => 'sometimes|string|max:255',
-                'champion_id' => 'sometimes|exists:champions,id',
-                'image_url' => 'sometimes|url',
-                'unlock_cost' => 'sometimes|integer|min:0',
-                'description' => 'sometimes|string'
-            ]);
-
-            $skin->update($request->only([
-                'name', 'champion_id', 'image_url', 'unlock_cost', 'description'
-            ]));
-
-            return response()->json([
-                'success' => true,
-                'data' => $skin->load('champion'),
-                'message' => 'Skin updated successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error updating skin: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error updating skin',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Remove the specified skin from storage (admin only)
-     */
-    public function destroy($id)
-    {
-        try {
-            $skin = Skin::findOrFail($id);
-            
-            // Remove all unlock records for this skin
-            $skin->users()->detach();
-            
-            $skin->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Skin deleted successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error deleting skin: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error deleting skin',
+                'message' => 'Error fetching skins',
                 'error' => $e->getMessage()
             ], 500);
         }

@@ -40,13 +40,13 @@ class User extends Authenticatable
     public function checkDailyLogin(): bool
     {
         $today = Carbon::today();
-        
+
         if (!$this->last_login_date || !$this->last_login_date->isSameDay($today)) {
             $this->increment('points', 5);
             $this->update(['last_login_date' => $today]);
             return true;
         }
-        
+
         return false;
     }
 
@@ -72,7 +72,7 @@ class User extends Authenticatable
     public function unlockChampion($championId): bool
     {
         $champion = Champion::find($championId);
-        
+
         if (!$champion) {
             return false;
         }
@@ -116,43 +116,65 @@ class User extends Authenticatable
             ->withPivot('unlocked_at');
     }
 
-    public function unlockSkin($skinId): bool
+    // Στο User.php, αλλάξτε τη μέθοδο unlockSkin:
+    public function unlockSkin($skin): array
     {
-        $skin = Skin::find($skinId);
-        
+        if (is_numeric($skin)) {
+            $skin = Skin::find($skin);
+        }
+
         if (!$skin) {
-            return false;
+            return [
+                'success' => false,
+                'message' => 'Skin not found'
+            ];
         }
 
-        if ($this->hasUnlockedSkin($skinId)) {
-            return false;
+        if ($skin->isUnlockedForUser($this->id)) {
+            return [
+                'success' => false,
+                'message' => 'Skin is already unlocked'
+            ];
         }
 
-        if ($skin->is_unlocked_by_default) {
-            return false;
+        // Check if it's the first skin (default unlocked)
+        if ($skin->isFirstSkin()) {
+            return [
+                'success' => false,
+                'message' => 'This skin is already available by default'
+            ];
         }
 
         if ($this->points < $skin->unlock_cost) {
-            return false;
+            return [
+                'success' => false,
+                'message' => 'Not enough points to unlock this skin'
+            ];
         }
 
         // Check if user has unlocked the champion first
         if (!$skin->champion->isUnlockedForUser($this->id)) {
-            return false;
+            return [
+                'success' => false,
+                'message' => 'You must unlock the champion first before unlocking their skins'
+            ];
         }
 
-        $this->unlockedSkins()->attach($skinId, [
+        $this->unlockedSkins()->attach($skin->id, [
             'unlocked_at' => now()
         ]);
 
         $this->decrement('points', $skin->unlock_cost);
 
-        return true;
+        return [
+            'success' => true,
+            'message' => "Skin '{$skin->name}' unlocked successfully!"
+        ];
     }
-public function getUnlockedSkins()
-{
-    return $this->unlockedSkins()->with('champion')->get();
-}
+    public function getUnlockedSkins()
+    {
+        return $this->unlockedSkins()->with('champion')->get();
+    }
     public function hasUnlockedSkin($skinId): bool
     {
         return $this->unlockedSkins()->where('skin_id', $skinId)->exists();
