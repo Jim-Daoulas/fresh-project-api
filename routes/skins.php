@@ -1,30 +1,26 @@
 <?php
 
-use App\Http\Controllers\ChampionController;
-use App\Http\Controllers\ReworkController;
-use App\Http\Controllers\CommentController;
 use App\Http\Controllers\SkinController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [ChampionController::class, 'index']);
-Route::get('/champions', [ChampionController::class, 'index']);
-Route::get('/{champion}', [ChampionController::class, 'show']);
+// ✅ PUBLIC ROUTES - Για guests
+Route::get('/public/champion/{championId}', [SkinController::class, 'getPublicSkinsForChampion']);
+Route::get('/public/{id}', [SkinController::class, 'show']);
 
-// Skin routes (public)
-Route::get('/{champion}/skins', [SkinController::class, 'getChampionSkins']);
-Route::get('/skins/{skin}', [SkinController::class, 'show']);
-
-// Protected routes - Για τα unlocks και σχόλια (απαιτούν αυθεντικοποίηση)
+// ✅ AUTHENTICATED ROUTES - Για logged-in users
 Route::middleware(['auth:sanctum'])->group(function() {
-    // Unlock champion endpoint
-    Route::post('/{champion}/unlock', [ChampionController::class, 'unlock']);
+    // Get skins for a specific champion (authenticated)
+    Route::get('/champion/{championId}', [SkinController::class, 'getSkinsForChampion']);
     
-    // Skin unlock endpoint
-    Route::post('/skins/{skin}/unlock', [SkinController::class, 'unlock']);
+    // Get specific skin details
+    Route::get('/{id}', [SkinController::class, 'show']);
     
-    // Λήψη σχολίων για το rework ενός champion
-    Route::get('/{champion}/rework/comments', [CommentController::class, 'getChampionReworkComments']);
+    // Unlock a skin
+    Route::post('/{skinId}/unlock', [SkinController::class, 'unlock']);
     
-    // Προσθήκη σχολίου στο rework ενός champion
-    Route::post('/{champion}/rework/comments', [CommentController::class, 'addCommentToChampionRework']);
+    // Get user's unlocked skins
+    Route::get('/user/unlocked', [SkinController::class, 'getUserUnlockedSkins']);
+    
+    // Admin/Debug: Get all skins
+    Route::get('/', [SkinController::class, 'index']);
 });
