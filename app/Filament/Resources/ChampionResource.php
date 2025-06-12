@@ -93,10 +93,15 @@ class ChampionResource extends Resource
                         ->addable()
                         ->default([
                             'hp' => '0',
-                            'mana' => '0',
-                            'attack' => '0',
-                            'defense' => '0',
-                            'ability_power' => '0',
+                            'mp' => '0',
+                            'Health_Regen' => '0',
+                            'Mana_regen' => '0',
+                            'Armor' => '0',
+                            'Attack' => '0',
+                            'Magic_Resistance' => '0',
+                            'Critical_Damage' => '0',
+                            'Move_Speed' => '0',
+                            'Attack_Range' => '0',
                         ]),
                 ]),
         ]);
