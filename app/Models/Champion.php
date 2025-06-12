@@ -19,6 +19,7 @@ class Champion extends Model implements HasMedia
         'name',
         'title',
         'role',
+        'secondary_role',
         'region',
         'description',
         'image_url',
@@ -153,4 +154,18 @@ class Champion extends Model implements HasMedia
               });
         });
     }
+    public function getAllRoles(): array
+{
+    $roles = [$this->role];
+    if ($this->secondary_role) {
+        $roles[] = $this->secondary_role;
+    }
+    return $roles;
+}
+
+public function getRolesAsString(): string
+{
+    $roles = $this->getAllRoles();
+    return implode(' / ', $roles);
+}
 }

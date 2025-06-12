@@ -15,13 +15,11 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-
 class ChampionResource extends Resource
 {
     protected static ?string $model = Champion::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationGroup = 'Champions';
-
 
     public static function form(Form $form): Form
     {
@@ -37,6 +35,7 @@ class ChampionResource extends Resource
                         ->required()
                         ->maxLength(255),
                     Forms\Components\Select::make('role')
+                        ->label('Primary Role')
                         ->required()
                         ->options([
                             'Assassin' => 'Assassin',
@@ -46,6 +45,18 @@ class ChampionResource extends Resource
                             'Support' => 'Support',
                             'Tank' => 'Tank',
                         ]),
+                    Forms\Components\Select::make('secondary_role')
+                        ->label('Secondary Role (Optional)')
+                        ->nullable() // Κάνε το optional
+                        ->options([
+                            'Assassin' => 'Assassin',
+                            'Fighter' => 'Fighter',
+                            'Mage' => 'Mage',
+                            'Marksman' => 'Marksman',
+                            'Support' => 'Support',
+                            'Tank' => 'Tank',
+                        ])
+                        ->different('role'), // Δεν μπορεί να είναι ίδιο με το primary role
                     Forms\Components\Select::make('region')
                         ->required()
                         ->options([
@@ -91,6 +102,8 @@ class ChampionResource extends Resource
                         ->keyLabel('Stat Name')
                         ->valueLabel('Value')
                         ->addable()
+                        ->deletable()
+                        ->reorderable()
                         ->default([
                             'hp' => '0',
                             'mp' => '0',
@@ -102,62 +115,89 @@ class ChampionResource extends Resource
                             'Critical_Damage' => '0',
                             'Move_Speed' => '0',
                             'Attack_Range' => '0',
-                        ]),
+                        ])
+                        ->columnSpanFull(),
                 ]),
         ]);
     }
 
     public static function table(Table $table): Table
-{
-    return $table
-        ->columns([
-            SpatieMediaLibraryImageColumn::make('avatar')
-                ->collection('avatars')
-                ->conversion('thumb')
-                ->circular()
-                ->size(60),
-            Tables\Columns\TextColumn::make('name')
-                ->searchable()
-                ->sortable()
-                ->weight('bold'),
-            Tables\Columns\TextColumn::make('title')
-                ->searchable()
-                ->sortable(),
-            Tables\Columns\TextColumn::make('region'),
-            Tables\Columns\TextColumn::make('created_at')
-                ->dateTime()
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
-            Tables\Columns\TextColumn::make('updated_at')
-                ->dateTime()
-                ->sortable()
-                ->toggleable(isToggledHiddenByDefault: true),
-        ])
-        ->filters([
-            Tables\Filters\SelectFilter::make('role')
-                ->options([
-                    'Assassin' => 'Assassin',
-                    'Fighter' => 'Fighter',
-                    'Mage' => 'Mage',
-                    'Marksman' => 'Marksman',
-                    'Support' => 'Support',
-                    'Tank' => 'Tank',
+    {
+        return $table
+            ->columns([
+                SpatieMediaLibraryImageColumn::make('avatar')
+                    ->collection('avatars')
+                    ->conversion('thumb')
+                    ->circular()
+                    ->size(60),
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'),
+                Tables\Columns\TextColumn::make('title')
+                    ->searchable()
+                    ->sortable(),
+                
+                // Updated roles column to show both roles
+                Tables\Columns\TextColumn::make('roles')
+                    ->label('Roles')
+                    ->getStateUsing(function (Champion $record) {
+                        $roles = [$record->role];
+                        if ($record->secondary_role) {
+                            $roles[] = $record->secondary_role;
+                        }
+                        return implode(' / ', $roles);
+                    })
+                    ->badge()
+                    ->color('primary'),
+                    
+                Tables\Columns\TextColumn::make('region'),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('role')
+                    ->label('Primary Role')
+                    ->options([
+                        'Assassin' => 'Assassin',
+                        'Fighter' => 'Fighter',
+                        'Mage' => 'Mage',
+                        'Marksman' => 'Marksman',
+                        'Support' => 'Support',
+                        'Tank' => 'Tank',
+                    ]),
+                Tables\Filters\SelectFilter::make('secondary_role')
+                    ->label('Secondary Role')
+                    ->options([
+                        'Assassin' => 'Assassin',
+                        'Fighter' => 'Fighter',
+                        'Mage' => 'Mage',
+                        'Marksman' => 'Marksman',
+                        'Support' => 'Support',
+                        'Tank' => 'Tank',
+                    ]),
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->requiresConfirmation()
+                    ->modalHeading('Delete Champion')
+                    ->modalDescription('Are you sure you want to delete this champion?')
+                    ->modalSubmitActionLabel('Yes, delete it'),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
                 ]),
-        ])
-        ->actions([
-            Tables\Actions\EditAction::make(),
-            Tables\Actions\DeleteAction::make()
-                ->requiresConfirmation()
-                ->modalHeading('Delete Champion')
-                ->modalDescription('Are you sure you want to delete this champion?')
-                ->modalSubmitActionLabel('Yes, delete it'),
-        ])
-        ->bulkActions([
-            Tables\Actions\BulkActionGroup::make([
-                Tables\Actions\DeleteBulkAction::make(),
-            ]),
-        ]);
-}
+            ]);
+    }
+
     public static function getRelations(): array
     {
         return [
