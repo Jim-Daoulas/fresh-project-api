@@ -14,10 +14,7 @@ Route::middleware(['auth:sanctum'])->group(function() {
     
     // Get specific skin details
     Route::get('/{id}', [SkinController::class, 'show']);
-    
-    // Unlock a skin
-    Route::post('/{skinId}/unlock', [SkinController::class, 'unlock']);
-    
+  
     // Get user's unlocked skins
     Route::get('/user/unlocked', [SkinController::class, 'getUserUnlockedSkins']);
     
