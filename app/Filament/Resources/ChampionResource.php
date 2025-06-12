@@ -39,8 +39,8 @@ class ChampionResource extends Resource
                             ->required()
                             ->options([
                                 'Assassin' => 'Assassin',
-                                'Enchanter' => 'Fighter',
-                                'Catcher' => 'Mage',
+                                'Enchanter' => 'Enchanter',
+                                'Catcher' => 'Catcher',
                                 'Marksman' => 'Marksman',
                                 'Juggernaut' => 'Juggernaut',
                                 'Diver' => 'Diver',
@@ -174,7 +174,7 @@ class ChampionResource extends Resource
                     ->options([
                         'Assassin' => 'Assassin',
                         'Enchanter' => 'Enchanter',
-                        'Catcher' => 'Mage',
+                        'Catcher' => 'Catcher',
                         'Marksman' => 'Marksman',
                         'Juggernaut' => 'Juggernaut',
                         'Diver' => 'Diver',
