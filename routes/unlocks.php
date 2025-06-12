@@ -13,10 +13,13 @@ Route::middleware(['auth:sanctum'])->group(function() {
     Route::post('/unlock/champion/{champion}', [UnlockController::class, 'unlockChampion']);
     Route::post('/unlock/skin/{skin}', [UnlockController::class, 'unlockSkin']);
     
+    // Shorter routes για το frontend
+    Route::post('/champion/{champion}', [UnlockController::class, 'unlockChampion']);
+    Route::post('/skin/{skin}', [UnlockController::class, 'unlockSkin']);
+    
     // Get available unlocks
     Route::get('/available-unlocks', [UnlockController::class, 'getAvailableUnlocks']);
     Route::get('/locked-items', [UnlockController::class, 'getLockedItems']);
-    
     
     // Add points (για testing - μπορείς να το αφαιρέσεις αργότερα)
     Route::post('/add-points', [UnlockController::class, 'addPoints']);
