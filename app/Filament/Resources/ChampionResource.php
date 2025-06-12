@@ -173,7 +173,7 @@ class ChampionResource extends Resource
                     ->label('Primary Role')
                     ->options([
                         'Assassin' => 'Assassin',
-                        'Enchanter' => 'Fighter',
+                        'Enchanter' => 'Enchanter',
                         'Catcher' => 'Mage',
                         'Marksman' => 'Marksman',
                         'Juggernaut' => 'Juggernaut',
