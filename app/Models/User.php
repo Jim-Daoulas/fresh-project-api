@@ -61,7 +61,7 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class);
     }
 
-    // ✅ CHAMPION UNLOCK SYSTEM (existing)
+    // ✅ CHAMPION UNLOCK SYSTEM
     public function unlockedChampions(): BelongsToMany
     {
         return $this->belongsToMany(Champion::class, 'champion_unlocks')
@@ -69,33 +69,50 @@ class User extends Authenticatable
             ->withPivot('unlocked_at');
     }
 
-    public function unlockChampion($championId): bool
+    public function unlockChampion($champion): array
     {
-        $champion = Champion::find($championId);
-
-        if (!$champion) {
-            return false;
+        if (is_numeric($champion)) {
+            $champion = Champion::find($champion);
         }
 
-        if ($this->hasUnlockedChampion($championId)) {
-            return false;
+        if (!$champion) {
+            return [
+                'success' => false,
+                'message' => 'Champion not found'
+            ];
+        }
+
+        if ($this->hasUnlockedChampion($champion->id)) {
+            return [
+                'success' => false,
+                'message' => 'Champion is already unlocked'
+            ];
         }
 
         if ($champion->is_unlocked_by_default) {
-            return false;
+            return [
+                'success' => false,
+                'message' => 'This champion is already available by default'
+            ];
         }
 
         if ($this->points < $champion->unlock_cost) {
-            return false;
+            return [
+                'success' => false,
+                'message' => 'Not enough points to unlock this champion'
+            ];
         }
 
-        $this->unlockedChampions()->attach($championId, [
+        $this->unlockedChampions()->attach($champion->id, [
             'unlocked_at' => now()
         ]);
 
         $this->decrement('points', $champion->unlock_cost);
 
-        return true;
+        return [
+            'success' => true,
+            'message' => "Champion '{$champion->name}' unlocked successfully!"
+        ];
     }
 
     public function hasUnlockedChampion($championId): bool
@@ -108,7 +125,7 @@ class User extends Authenticatable
         return $this->unlockedChampions()->pluck('champion_id')->toArray();
     }
 
-    // ✅ SKIN UNLOCK SYSTEM (same logic as champions)
+    // ✅ SKIN UNLOCK SYSTEM
     public function unlockedSkins(): BelongsToMany
     {
         return $this->belongsToMany(Skin::class, 'skin_unlocks')
@@ -116,7 +133,6 @@ class User extends Authenticatable
             ->withPivot('unlocked_at');
     }
 
-    // Στο User.php, αλλάξτε τη μέθοδο unlockSkin:
     public function unlockSkin($skin): array
     {
         if (is_numeric($skin)) {
@@ -171,10 +187,12 @@ class User extends Authenticatable
             'message' => "Skin '{$skin->name}' unlocked successfully!"
         ];
     }
+
     public function getUnlockedSkins()
     {
         return $this->unlockedSkins()->with('champion')->get();
     }
+
     public function hasUnlockedSkin($skinId): bool
     {
         return $this->unlockedSkins()->where('skin_id', $skinId)->exists();
