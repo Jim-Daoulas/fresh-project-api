@@ -8,8 +8,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Carbon\Carbon;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
+use App\Enum\RoleCode;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable, HasApiTokens;
 
@@ -60,8 +63,13 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Role::class);
     }
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Επέτρεψε πρόσβαση σε users με admin role
+        return $this->roles()->where('role_id', RoleCode::admin)->exists();
+    }
 
-    // ✅ CHAMPION UNLOCK SYSTEM
+    // CHAMPION UNLOCK SYSTEM
     public function unlockedChampions(): BelongsToMany
     {
         return $this->belongsToMany(Champion::class, 'champion_unlocks')
@@ -125,7 +133,7 @@ class User extends Authenticatable
         return $this->unlockedChampions()->pluck('champion_id')->toArray();
     }
 
-    // ✅ SKIN UNLOCK SYSTEM
+    // SKIN UNLOCK SYSTEM
     public function unlockedSkins(): BelongsToMany
     {
         return $this->belongsToMany(Skin::class, 'skin_unlocks')
