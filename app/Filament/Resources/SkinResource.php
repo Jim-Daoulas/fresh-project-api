@@ -51,16 +51,16 @@ class SkinResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('champion.name')
-                    ->numeric()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
                 SpatieMediaLibraryImageColumn::make('skin')
                 ->collection('skins')
                 ->conversion('thumb')
                 ->circular()
                 ->size(60),
+                Tables\Columns\TextColumn::make('champion.name')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -78,6 +78,11 @@ class SkinResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->requiresConfirmation()
+                    ->modalHeading('Delete Champion')
+                    ->modalDescription('Are you sure you want to delete this champion?')
+                    ->modalSubmitActionLabel('Yes, delete it'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -100,5 +105,9 @@ class SkinResource extends Resource
             'create' => Pages\CreateSkin::route('/create'),
             'edit' => Pages\EditSkin::route('/{record}/edit'),
         ];
+    }
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
     }
 }

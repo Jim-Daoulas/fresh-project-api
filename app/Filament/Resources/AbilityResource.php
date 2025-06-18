@@ -86,6 +86,11 @@ class AbilityResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->requiresConfirmation()
+                    ->modalHeading('Delete Champion')
+                    ->modalDescription('Are you sure you want to delete this champion?')
+                    ->modalSubmitActionLabel('Yes, delete it'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -108,5 +113,9 @@ class AbilityResource extends Resource
             'create' => Pages\CreateAbility::route('/create'),
             'edit' => Pages\EditAbility::route('/{record}/edit'),
         ];
+    }
+        public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
     }
 }
