@@ -57,6 +57,11 @@ class AbilityResource extends Resource
     {
         return $table
             ->columns([
+                SpatieMediaLibraryImageColumn::make('ability')
+                ->collection('abilities')
+                ->conversion('thumb')
+                ->circular()
+                ->size(60),
                 Tables\Columns\TextColumn::make('champion.name')
                     ->numeric()
                     ->sortable(),
@@ -64,11 +69,6 @@ class AbilityResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('key')
                     ->searchable(),
-                SpatieMediaLibraryImageColumn::make('ability')
-                ->collection('abilities')
-                ->conversion('thumb')
-                ->circular()
-                ->size(60),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
