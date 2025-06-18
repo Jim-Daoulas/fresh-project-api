@@ -19,7 +19,6 @@ Route::middleware(['auth:sanctum'])->group(function() {
     Route::get('/champions', [ChampionController::class, 'index']);
     Route::get('/my-champions', [ChampionController::class, 'index']);
     Route::get('/{champion}', [ChampionController::class, 'show']); // Για logged users
-    Route::post('/{champion}/unlock', [ChampionController::class, 'unlock']);
     Route::get('/{champion}/rework/comments', [CommentController::class, 'getChampionReworkComments']);
     Route::post('/{champion}/rework/comments', [CommentController::class, 'addCommentToChampionRework']);
 });

@@ -206,57 +206,6 @@ class SkinController extends Controller
     }
 
     /**
-     * Unlock a skin for the authenticated user
-     */
-    public function unlock(Request $request, Skin $skin): JsonResponse
-    {
-        try {
-            $user = $request->user();
-
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Authentication required to unlock skins'
-                ], 401);
-            }
-
-            // Use the unlockSkin method from User model
-            $result = $user->unlockSkin($skin);
-
-            // If unlock failed
-            if (!$result['success']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message']
-                ], 400);
-            }
-
-            // Successful unlock
-            return response()->json([
-                'success' => true,
-                'message' => $result['message'],
-                'data' => [
-                    'skin' => [
-                        'id' => $skin->id,
-                        'name' => $skin->name,
-                        'is_locked' => false
-                    ],
-                    'user_points' => $user->fresh()->points
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            \Log::error('Error in SkinController@unlock: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to unlock skin',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
      * Get all unlocked skins for the authenticated user
      */
     public function getUserUnlockedSkins(Request $request): JsonResponse
