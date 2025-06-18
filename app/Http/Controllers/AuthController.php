@@ -86,82 +86,86 @@ class AuthController extends Controller
         }
     }
 
-    public function login(Request $request)
-    {
-        try {
-            \Log::info('Login method called', $request->only(['email']));
-            
-            $fields = $request->validate([
-                'email' => 'required|string|email',
-                'password' => 'required|string|min:6'
-            ]);
+   public function login(Request $request)
+{
+    try {
+        \Log::info('Login method called', $request->only(['email']));
+        
+        $fields = $request->validate([
+            'email' => 'required|string|email',
+            'password' => 'required|string|min:6'
+        ]);
 
-            // Check email
-            $user = User::where('email', $fields['email'])->first();
+        // Check email
+        $user = User::where('email', $fields['email'])->first();
 
-            // Check password
-            if (!$user || !Hash::check($fields['password'], $user->password)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid credentials'
-                ], 401);
-            }
-
-            // Role checking (if specified)
-            if ($request->role) {
-                $roleId = null;
-                
-                // If role is numeric (from middleware)
-                if (is_numeric($request->role)) {
-                    $roleId = (int)$request->role;
-                }
-                // If role is string (from manual request)
-                else if ($request->role === 'admin') {
-                    $roleId = RoleCode::admin;
-                } else if ($request->role === 'user') {
-                    $roleId = RoleCode::user;
-                }
-                
-                if ($roleId) {
-                    $hasRole = $user->roles()->where('role_id', $roleId)->exists();
-                    if (!$hasRole) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Unauthorized for this role'
-                        ], 401);
-                    }
-                }
-            }
-
-            $token = $user->createToken('auth_token')->plainTextToken;
-
-            $response = [
-                'success' => true,
-                'message' => 'User logged in successfully',
-                'data' => [
-                    'user' => $user->load('roles'),
-                    'token' => $token
-                ]
-            ];
-
-            return response()->json($response);
-            
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        // Check password
+        if (!$user || !Hash::check($fields['password'], $user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            \Log::error('Login error: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Login failed',
-                'error' => $e->getMessage()
-            ], 500);
+                'message' => 'Invalid credentials'
+            ], 401);
         }
+
+        // Role checking (if specified)
+        if ($request->role) {
+            $roleId = null;
+            
+            // If role is numeric (from middleware)
+            if (is_numeric($request->role)) {
+                $roleId = (int)$request->role;
+            }
+            // If role is string (from manual request)
+            else if ($request->role === 'admin') {
+                $roleId = RoleCode::admin;
+            } else if ($request->role === 'user') {
+                $roleId = RoleCode::user;
+            }
+            
+            if ($roleId) {
+                $hasRole = $user->roles()->where('role_id', $roleId)->exists();
+                if (!$hasRole) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized for this role'
+                    ], 401);
+                }
+            }
+        }
+
+        // ✅ DAILY LOGIN POINTS SYSTEM
+        $dailyLoginReward = $user->checkDailyLogin();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        $response = [
+            'success' => true,
+            'message' => 'User logged in successfully',
+            'data' => [
+                'user' => $user->fresh()->load('roles'),
+                'token' => $token,
+                'daily_login_reward' => $dailyLoginReward
+            ]
+        ];
+
+        return response()->json($response);
+        
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        \Log::error('Login error: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Login failed',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function logout(Request $request)
     {
