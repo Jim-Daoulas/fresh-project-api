@@ -83,7 +83,7 @@ class Champion extends Model implements HasMedia
             ->withPivot('unlocked_at');
     }
 
-    // ✅ MAIN METHOD - Έλεγχος αν είναι unlocked για user
+    // MAIN METHOD - Έλεγχος αν είναι unlocked για user
     public function isUnlockedForUser($userId = null): bool
     {
         \Log::info("=== DEBUG isUnlockedForUser ===");

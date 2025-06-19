@@ -123,37 +123,4 @@ class Rework extends Model
         return $this->user_id != $this->updated_by;
     }
 
-    public function getFormattedStatsAttribute(): string
-    {
-        if (!$this->stats) {
-            return 'No stats defined';
-        }
-
-        $formatted = [];
-        foreach ($this->stats as $key => $value) {
-            $formatted[] = ucfirst(str_replace('_', ' ', $key)) . ': ' . $value;
-        }
-
-        return implode(', ', $formatted);
-    }
-
-    // Method για σύγκριση stats
-    public function compareStatsWithChampion(): array
-    {
-        $championStats = $this->champion->stats ?? [];
-        $reworkStats = $this->stats ?? [];
-        $comparison = [];
-
-        foreach ($reworkStats as $key => $value) {
-            $originalValue = $championStats[$key] ?? 0;
-            $comparison[$key] = [
-                'original' => $originalValue,
-                'rework' => $value,
-                'difference' => $value - $originalValue,
-                'percentage_change' => $originalValue > 0 ? (($value - $originalValue) / $originalValue) * 100 : 0
-            ];
-        }
-
-        return $comparison;
-    }
 }

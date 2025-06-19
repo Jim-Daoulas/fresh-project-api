@@ -113,7 +113,7 @@ class SkinController extends Controller
                 'is_locked' => $isLocked
             ]);
 
-            // ✅ Always return 200, but with lock info
+            //  Always return 200, but with lock info
             if ($isLocked) {
                 return response()->json([
                     'success' => true,

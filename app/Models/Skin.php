@@ -70,7 +70,7 @@ class Skin extends Model implements HasMedia
             ->withPivot('unlocked_at');
     }
 
-    // ✅ MAIN METHOD - Έλεγχος αν είναι unlocked για user (ίδια λογική με Champion)
+    // MAIN METHOD - Έλεγχος αν είναι unlocked για user
     public function isUnlockedForUser($userId = null): bool
     {
         \Log::info("=== DEBUG Skin isUnlockedForUser ===");

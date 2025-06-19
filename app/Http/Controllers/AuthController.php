@@ -133,7 +133,7 @@ class AuthController extends Controller
             }
         }
 
-        // ✅ DAILY LOGIN POINTS SYSTEM
+        //  DAILY LOGIN POINTS SYSTEM
         $dailyLoginReward = $user->checkDailyLogin();
 
         $token = $user->createToken('auth_token')->plainTextToken;

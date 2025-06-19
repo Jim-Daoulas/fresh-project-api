@@ -7,7 +7,6 @@ Route::get('/', function () {
     return response()->json(['message' => 'hello user']);
 });
 
-// ✅ Αφαίρεσε το middleware από το auth group
 Route::prefix('auth')->group(base_path('routes/auth.php'));
 
 Route::prefix("user")

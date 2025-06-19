@@ -39,7 +39,7 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    // ✅ DAILY LOGIN SYSTEM
+    // DAILY LOGIN SYSTEM
     public function checkDailyLogin(): bool
     {
         $today = Carbon::today();
@@ -53,7 +53,7 @@ class User extends Authenticatable implements FilamentUser
         return false;
     }
 
-    // ✅ COMMENT POINTS SYSTEM
+    // COMMENT POINTS SYSTEM
     public function addCommentPoints(): void
     {
         $this->increment('points', 10);

@@ -100,10 +100,10 @@ class ChampionController extends Controller
                 'is_locked' => $isLocked
             ]);
 
-            // ✅ FIX: Επέστρεψε πάντα 200, αλλά με lock info
+            // Επέστρεψε πάντα 200, αλλά με lock info
             if ($isLocked) {
                 return response()->json([
-                    'success' => true, // ✅ Changed to true
+                    'success' => true, 
                     'data' => [
                         'id' => $champion->id,
                         'name' => $champion->name,
@@ -115,7 +115,7 @@ class ChampionController extends Controller
                     ],
                     'message' => 'This champion is locked. Please unlock it first.',
                     'is_locked' => true
-                ], 200); // ✅ Changed to 200
+                ], 200);
             }
 
             $champion->load([
